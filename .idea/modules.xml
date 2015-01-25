@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/acme-protocol.iml" filepath="$PROJECT_DIR$/.idea/modules/acme-protocol.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/acme-protocol-build.iml" filepath="$PROJECT_DIR$/.idea/modules/acme-protocol-build.iml" />
+    </modules>
+  </component>
+</project>

@@ -1,0 +1,34 @@
+<component name="ArtifactManager">
+  <artifact name="acme-protocol:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/acme_protocol_jar</output-path>
+    <root id="root">
+      <element id="archive" name="acme-protocol.jar">
+        <element id="directory" name="META-INF">
+          <element id="file-copy" path="$PROJECT_DIR$/project/META-INF/MANIFEST.MF" />
+        </element>
+        <element id="module-output" name="acme-protocol" />
+        <element id="module-output" name="acme-protocol-build" />
+      </element>
+      <element id="library" level="project" name="SBT: com.typesafe.play:play-json_2.11:2.4.0-M2:jar" />
+      <element id="library" level="project" name="SBT: org.scala-lang:scala-reflect:2.11.1:jar" />
+      <element id="library" level="project" name="SBT: commons-io:commons-io:2.4:jar" />
+      <element id="library" level="project" name="SBT: net.jcip:jcip-annotations:1.0:jar" />
+      <element id="library" level="module" name="SBT: unmanaged-jars" module-name="acme-protocol" />
+      <element id="library" level="project" name="SBT: org.scala-stm:scala-stm_2.11:0.7:jar" />
+      <element id="library" level="project" name="SBT: org.scala-lang:scala-library:2.11.5:jar" />
+      <element id="library" level="module" name="SBT: sbt-and-plugins" module-name="acme-protocol-build" />
+      <element id="library" level="project" name="SBT: com.typesafe.play:play-functional_2.11:2.4.0-M2:jar" />
+      <element id="library" level="project" name="SBT: com.typesafe.play:play-datacommons_2.11:2.4.0-M2:jar" />
+      <element id="library" level="project" name="SBT: com.fasterxml.jackson.core:jackson-core:2.4.4:jar" />
+      <element id="library" level="project" name="SBT: com.typesafe:config:1.2.1:jar" />
+      <element id="library" level="project" name="SBT: com.fasterxml.jackson.core:jackson-annotations:2.4.4:jar" />
+      <element id="library" level="project" name="SBT: com.typesafe.play:play-iteratees_2.11:2.4.0-M2:jar" />
+      <element id="library" level="project" name="SBT: net.minidev:json-smart:1.1.1:jar" />
+      <element id="library" level="project" name="SBT: org.joda:joda-convert:1.7:jar" />
+      <element id="library" level="project" name="SBT: com.nimbusds:nimbus-jose-jwt:3.7:jar" />
+      <element id="library" level="project" name="SBT: joda-time:joda-time:2.5:jar" />
+      <element id="library" level="project" name="SBT: org.bouncycastle:bcprov-jdk15on:1.51:jar" />
+      <element id="library" level="project" name="SBT: com.fasterxml.jackson.core:jackson-databind:2.4.4:jar" />
+    </root>
+  </artifact>
+</component>

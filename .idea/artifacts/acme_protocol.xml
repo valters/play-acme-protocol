@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="acme-protocol">
+    <output-path>$PROJECT_DIR$/out/artifacts/acme_protocol</output-path>
+    <root id="archive" name="acme-protocol.jar">
+      <element id="module-output" name="acme-protocol" />
+      <element id="module-output" name="acme-protocol-build" />
+    </root>
+  </artifact>
+</component>
