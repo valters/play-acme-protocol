@@ -6,7 +6,8 @@ import play.api.libs.json._
 /**
  * ACME protocol objects and messages package
  *
- * see https://github.com/letsencrypt/acme-spec/blob/master/draft-barnes-acme.md
+ * see https://github.com/letsencrypt/acme-spec and
+ * https://letsencrypt.github.io/acme-spec/
  *
  */
 package object AcmeProtocol {
