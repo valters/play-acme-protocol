@@ -21,7 +21,7 @@ package object AcmeProtocol {
   implicit val jwkReads: Reads[JWK] = JsPath.read[String].map(JWK.parse(_))
 
   /**
-   * determine if the input string is a valid acme message of any 'type'
+   * determine if the input string is a valid acme message of any 'type'.
    * Note: the input string is trim before testing
    * @param t the input string to test
    * @return true if the input represents a valid acme type, else false
@@ -64,8 +64,8 @@ package object AcmeProtocol {
     implicit val fmt = Json.format[AcmeIdentifier]
   }
 
+  // todo is serialNumbers Int, Long or a real number?
   /**
-   * todo is serialNumbers Int, Long or a real number?
    * A JSON object that contains various clues for the client about what the requested key is, such that the client can find it.
    *
    * @param jwk A JSON Web Key object describing the public key whose corresponding private key should be used to generate the signature
@@ -84,9 +84,8 @@ package object AcmeProtocol {
     implicit val fmt = Json.format[Hints]
   }
 
-  // todo ... not specified in acme yet
   /**
-   * a contact
+   * a contact  .... todo ... not specified in acme yet
    * @param name
    * @param uri
    * @param email
@@ -117,8 +116,7 @@ package object AcmeProtocol {
   //----------------------------------------------------------------------------
 
   /**
-   * enumeration of acme general message types:
-   * error, defer, statusRequest
+   * enumeration of acme general message types: error, defer, statusRequest
    */
   object MessageTypeEnum extends Enumeration {
     type MessageTypeEnum = Value
@@ -192,8 +190,8 @@ package object AcmeProtocol {
 
   /**
    * enumeration of acme challenge types:
-   * simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession
-   * Note: values in ChallengeTypeEnum can also used in responses as well as challenges
+   * simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession.
+   * Note: values in ChallengeTypeEnum can also be used in responses as well as challenges
    */
   object ChallengeTypeEnum extends Enumeration {
     type ChallengeTypeEnum = Value
@@ -374,6 +372,7 @@ package object AcmeProtocol {
   final case class ChallengeProofOfPossessionResponse(`type`: String = ChallengeTypeEnum.proofOfPossession.toString,
                                                       nonce: String, signature: AcmeSignature) extends ResponseType
 
+  // todo challenges: Seq[ChallengeType]
   /**
    * a challenge response
    * @param type type of the response, "challenge"
@@ -384,7 +383,7 @@ package object AcmeProtocol {
    * @param combinations A collection of sets of challenges, each of which would be sufficient to prove possession of the identifier.
    *                     Clients SHOULD complete a set of challenges that that covers at least one set in this array.
    *                     Challenges are represented by their associated zero-based index in the challenges array.
-   */// todo challenges: Seq[ChallengeType]
+   */
   final case class Challenge(`type`: String = ResponseTypeEnum.challenge.toString,
                              sessionID: String, nonce: String, challenges: Seq[String] = Seq.empty,
                              combinations: Array[Array[Int]]) extends ResponseType
