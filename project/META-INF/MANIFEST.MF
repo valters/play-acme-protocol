@@ -29,5 +29,4 @@ Class-Path: play-json_2.11-2.4.0-M2.jar scala-reflect-2.11.1.jar commo
  .4.0-M2.jar json-smart-1.1.1.jar joda-convert-1.7.jar nimbus-jose-jwt
  -3.7.jar joda-time-2.5.jar bcprov-jdk15on-1.51.jar jackson-databind-2
  .4.4.jar
-Main-Class: 
 
