@@ -20,7 +20,7 @@ see build.sbt
 
 ## Status
 
-Just starting the project, not ready for use yet.
+Just starting the project.
 
 Using scala 2.11.5 and java 1.8 SDK, with IntelliJ IDEA 14.
 
