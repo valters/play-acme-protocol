@@ -189,8 +189,7 @@ package object AcmeProtocol {
   //----------------------------------------------------------------------------
 
   /**
-   * enumeration of acme challenge types:
-   * simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession.
+   * enumeration of acme challenge types: simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession.
    * Note: values in ChallengeTypeEnum can also be used in responses as well as challenges
    */
   object ChallengeTypeEnum extends Enumeration {
