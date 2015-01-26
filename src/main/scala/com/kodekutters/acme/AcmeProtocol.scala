@@ -399,7 +399,7 @@ package object AcmeProtocol {
   /**
    * an authorization response message
    * @param type type of the response, "authorization"
-   * @param recoveryToken An arbitrary server-generated string. If the server provides a recovery token, it MUST
+   * @param recoveryToken   An arbitrary server-generated string. If the server provides a recovery token, it MUST
    *                      generate a unique value for every authorization transaction, and this value MUST NOT
    *                      be predictable or guessable by a third party.
    * @param identifier The identifier for which authorization has been granted.
