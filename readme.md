@@ -23,9 +23,9 @@ that I used (verbatim) in the documentation of the scala code.
 
 ## Dependencies
 
-Play
+The scala Play Framework Json library and the Nimbus JOSE + JWT Java library for JSON Web Tokens (JWT).
 
-see build.sbt
+See the build.sbt file.
 
 ## Status
 
