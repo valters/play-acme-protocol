@@ -6,7 +6,10 @@ import play.api.libs.json._
 /**
  * ACME protocol objects and messages package
  *
- * see https://github.com/letsencrypt/acme-spec and
+ * Reference, the Let's Encrypt project at: https://letsencrypt.org/
+ *
+ * For the ACME protocol specification see:
+ * https://github.com/letsencrypt/acme-spec and
  * https://letsencrypt.github.io/acme-spec/
  *
  */

@@ -25,7 +25,7 @@ that I used (verbatim) in the documentation of the scala code.
 
 The scala Play Framework Json library and the Nimbus JOSE + JWT Java library for JSON Web Tokens (JWT).
 
-See the build.sbt file.
+See also the build.sbt file.
 
 ## Status
 

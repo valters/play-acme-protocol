@@ -6,12 +6,12 @@ import java.util.Base64
 import javax.security.cert.X509Certificate
 
 /**
- * a set of utilities
+ * utilities supporting the ACME protocol
  */
 package object Util {
 
   /**
-   * test if the current running java is at least version n
+   * test if the current running java is at least version n.
    * @param n the string representing the java version number to test (e.g. "1.8")
    * @return true if n >= the current running java version, false for anything else.
    */
@@ -81,6 +81,11 @@ package object Util {
    * @return 16 bytes random number base 64 encoded string
    */
   def newNonce: String = randomString(16)
+
+  /**
+   * convenience method, creates a option nonce as a 16 bytes random number base 64 encoded string
+   * @return 16 bytes random number base 64 encoded option string
+   */
   def newNonceOpt: Option[String] = Some(newNonce)
 
   /**
