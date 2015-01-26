@@ -21,7 +21,7 @@ package object AcmeProtocol {
   implicit val jwkReads: Reads[JWK] = JsPath.read[String].map(JWK.parse(_))
 
   /**
-   * determine if the input string is any valid acme message 'type'
+   * determine if the input string is a valid acme message of any 'type'
    * Note: the input string is trim before testing
    * @param t the input string to test
    * @return true if the input represents a valid acme type, else false
@@ -127,9 +127,9 @@ package object AcmeProtocol {
     implicit def messageTypeEnumToString(value: MessageTypeEnum.Value): String = value.toString
 
     /**
-     * returns the enumeration type as an option given a string representation of the enumeration name
+     * returns the enumeration value as an option given a string representation of the enumeration name
      * @param s the input string representing the enumeration type
-     * @return the enumeration type
+     * @return the enumeration value or None
      */
     def withNameString(s: String): Option[MessageTypeEnum] = {
       try {
@@ -202,9 +202,9 @@ package object AcmeProtocol {
     implicit def challengeTypeEnumToString(value: ChallengeTypeEnum.Value): String = value.toString
 
     /**
-     * returns the enumeration type as an option given a string representation of the enumeration name
+     * returns the enumeration value as an option given a string representation of the enumeration name
      * @param s the input string representing the enumeration type
-     * @return the enumeration type
+     * @return the enumeration value
      */
     def withNameString(s: String): Option[ChallengeTypeEnum] = {
       try {
@@ -295,9 +295,9 @@ package object AcmeProtocol {
     implicit def responseTypeEnumToString(value: ResponseTypeEnum.Value): String = value.toString
 
     /**
-     * returns the enumeration type as an option given a string representation of the enumeration name
+     * returns the enumeration value as an option given a string representation of the enumeration name
      * @param s the input string representing the enumeration type
-     * @return the enumeration type
+     * @return the enumeration value
      */
     def withNameString(s: String): Option[ResponseTypeEnum] = {
       try {
@@ -443,9 +443,9 @@ package object AcmeProtocol {
     implicit def requestTypeEnumToString(value: RequestTypeEnum.Value): String = value.toString
 
     /**
-     * returns the enumeration type as an option given a string representation of the enumeration name
+     * returns the enumeration value as an option given a string representation of the enumeration name
      * @param s the input string representing the enumeration type
-     * @return the enumeration type
+     * @return the enumeration value
      */
     def withNameString(s: String): Option[RequestTypeEnum] = {
       try {
