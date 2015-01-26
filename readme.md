@@ -1,9 +1,7 @@
 # Automated Certificate Management Environment (ACME) protocol library written in scala.
 
-ACME is a protocol for automating the management of domain-validation certificates,
-based on a simple JSON-over-HTTPS interface developed at [Let's Encrypt](https://letsencrypt.org/).
-
-From reference 1, Let’s Encrypt is a free, automated, and open certificate authority (CA), run for the public’s benefit.
+From reference 1, ACME is a protocol for automating the management of domain-validation certificates,
+based on a simple JSON-over-HTTPS interface. [Let's Encrypt](https://letsencrypt.org/) is a free, automated, and open certificate authority (CA), run for the public’s benefit.
 Let’s Encrypt is a service provided by the Internet Security Research Group (ISRG).
 
 For a description of the protocol see the [ACME protocol specification](https://github.com/letsencrypt/acme-spec) and
