@@ -1,7 +1,8 @@
 package com.kodekutters.acme
 
 import java.net.URL
-import com.kodekutters.acme.AcmeProtocol.{AcmeSignature, AuthorizationRequest}
+import com.kodekutters.Util._
+import com.kodekutters.acme.AcmeProtocol._
 import com.nimbusds.jose.Algorithm
 import com.nimbusds.jose.jwk.{KeyUse, RSAKey}
 import com.nimbusds.jose.util.Base64URL
@@ -55,6 +56,30 @@ object Example1 {
 
     // convert the scala AuthorizationRequest into a json message
     println("\njson authReq: " + Json.toJson(authReq))
+
+    // exercising the challengeTypeToJsValue implicit
+
+    // some challenges
+    val simpleHTTPS = new ChallengeSimpleHTTPS(token = newToken)
+    val dns = new ChallengeDNS(token = newToken)
+    val recoveryToken = new RecoveryToken()
+    // the list of challenges
+    val challengeList = List(simpleHTTPS, dns, recoveryToken)
+
+    // the challenges combinations
+    val theCombinations = Array.ofDim[Int](2, 2)
+    theCombinations(0)(0) = 0
+    theCombinations(0)(1) = 2
+    theCombinations(1)(0) = 1
+    theCombinations(1)(1) = 2
+
+    // create a challenge response, note the challengeList is a list[ChallengeType]
+    // the implicit will convert it to the required List[JsValue]
+    val theChallenge = new Challenge(sessionID = newNonce, nonce = newNonce, challenges = challengeList, combinations = theCombinations)
+
+    println("\ntheChallenge: " + theChallenge)
+
+    println("\ntheChallenge json: " + Json.toJson(theChallenge))
 
   }
 

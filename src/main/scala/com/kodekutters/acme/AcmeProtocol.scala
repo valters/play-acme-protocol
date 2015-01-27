@@ -373,7 +373,7 @@ package object AcmeProtocol {
   final case class ChallengeProofOfPossessionResponse(`type`: String = ChallengeTypeEnum.proofOfPossession.toString,
                                                       nonce: String, signature: AcmeSignature) extends ResponseType
 
-  // todo challenges: Seq[ChallengeType]
+  // todo challenges: Seq[ChallengeType], see challengeTypeToJsValue implicit for now
   /**
    * a challenge response
    * @param type type of the response, "challenge"
@@ -386,7 +386,7 @@ package object AcmeProtocol {
    *                     Challenges are represented by their associated zero-based index in the challenges array.
    */
   final case class Challenge(`type`: String = ResponseTypeEnum.challenge.toString,
-                             sessionID: String, nonce: String, challenges: Seq[JsValue] = Seq.empty,
+                             sessionID: String, nonce: String, challenges: List[JsValue] = List.empty,
                              combinations: Array[Array[Int]]) extends ResponseType
 
   /**
@@ -511,12 +511,55 @@ package object AcmeProtocol {
    *                  in the response array is set to null. Otherwise, it is set to a value defined by the challenge type.
    * @param contact An array of URIs that the server can use to contact the client for issues related to this authorization.
    */
-  // todo responses: should be List[ResponseType]
+  // todo responses: should be List[ResponseType], see authRespTypeToJsValue implicit for now
   final case class AuthorizationRequest(`type`: String = RequestTypeEnum.authorizationRequest.toString,
                                         sessionID: String,
                                         nonce: String,
                                         signature: AcmeSignature,
                                         responses: List[JsValue] = List.empty,
                                         contact: Option[List[Contact]] = None) extends RequestType
+
+  //
+  // temporary implicits to help AuthorizationRequest and Challenge response
+  //
+
+  implicit def authRespTypeToJsValue(responseTypeList: List[ResponseType]): List[JsValue] = {
+    try {
+      responseTypeList.map(c => c match {
+        case x: Revocation => Json.toJson[Revocation](x)
+        case x: CertificateIssuance => Json.toJson[CertificateIssuance](x)
+        case x: Authorization => Json.toJson[Authorization](x)
+        case x: RecoveryContactResponse => Json.toJson[RecoveryContactResponse](x)
+        case x: Challenge => Json.toJson[Challenge](x)
+        case x: ChallengeProofOfPossessionResponse => Json.toJson[ChallengeProofOfPossessionResponse](x)
+        case x: RecoveryTokenResponse => Json.toJson[RecoveryTokenResponse](x)
+        case x: ChallengeDNSResponse => Json.toJson[ChallengeDNSResponse](x)
+        case x: DVSNIResponceS => Json.toJson[DVSNIResponceS](x)
+        case x: DVSNIResponceR => Json.toJson[DVSNIResponceR](x)
+        case x: SimpleHTTPSResponse => Json.toJson[SimpleHTTPSResponse](x)
+        case x => JsNull
+      }).toList
+    }
+    catch {
+      case e: Exception => List.empty[JsValue]
+    }
+  }
+
+  implicit def challengeTypeToJsValue(challengeTypeList: List[ChallengeType]): List[JsValue] = {
+    try {
+      challengeTypeList.map(c => c match {
+        case x: ChallengeSimpleHTTPS => Json.toJson[ChallengeSimpleHTTPS](x)
+        case x: ChallengeDNS => Json.toJson[ChallengeDNS](x)
+        case x: RecoveryToken => Json.toJson[RecoveryToken](x)
+        case x: ChallengeRecoveryContact => Json.toJson[ChallengeRecoveryContact](x)
+        case x: ChallengeProofOfPossession => Json.toJson[ChallengeProofOfPossession](x)
+        case x: ChallengeDVSNI => Json.toJson[ChallengeDVSNI](x)
+        case x => JsNull
+      }).toList
+    }
+    catch {
+      case e: Exception => List.empty[JsValue]
+    }
+  }
 
 }
