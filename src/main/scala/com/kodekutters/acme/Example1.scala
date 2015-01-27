@@ -19,7 +19,7 @@ object Example1 {
     val jsVal = Json.parse(
       """{"type":"authorizationRequest","sessionID":"aefoGaavieG9Wihuk2aufai3aeZ5EeW4","nonce":"czpsrF0KMH6dgajig3TGHw","signature":{"alg":"ES256","sig":"lxj0Ucdo4r5s1c1cuY2R7oKqWi4QuNJzdwe5/4m9zWQ","nonce":"Aenb3DvfvOPImdXdnxHMlp7Jh4qsgYeTEM-dFgFOGxU","jwk":"{\"kty\":\"RSA\",\"e\":\"e\",\"use\":\"sig\",\"x5t\":\"something here\",\"kid\":\"kid\",\"x5u\":\"https:\\/\\/www.example.com\",\"alg\":\"ES256\",\"n\":\"n\"}"},
          "responses":[ {"type": "simpleHttps","path": "Hf5GrX4Q7EBax9hc2jJnfw"},{"type": "recoveryToken","token": "23029d88d9e123e"} ],
-        "contact":[ {"name":"some-name","uri":"some-uri","email":"some-email","tel":"some-telephone"} ]
+        "contact":[ ]
         }""".stripMargin)
 
     // the scala AuthorizationRequest from the json
