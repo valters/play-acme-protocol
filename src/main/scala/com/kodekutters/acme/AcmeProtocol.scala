@@ -386,7 +386,7 @@ package object AcmeProtocol {
    *                     Challenges are represented by their associated zero-based index in the challenges array.
    */
   final case class Challenge(`type`: String = ResponseTypeEnum.challenge.toString,
-                             sessionID: String, nonce: String, challenges: Seq[String] = Seq.empty,
+                             sessionID: String, nonce: String, challenges: Seq[JsValue] = Seq.empty,
                              combinations: Array[Array[Int]]) extends ResponseType
 
   /**
