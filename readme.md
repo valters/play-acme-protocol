@@ -36,16 +36,18 @@ randomString, nonce and token.
 
 ## Dependencies
 
-The scala Play Framework Json library and the Nimbus JOSE + JWT Java library for JSON Web Tokens (JWT).
+The AcmeProtocol library depends on the scala Play Framework Json library and the Nimbus JOSE + JWT Java library for JSON Web Tokens (JWT).
 
 See also the build.sbt file.
 
 ## Status
 
-Just starting the project.
+Early stage of the project.
 
 Using scala 2.11.5 and java 1.8 SDK, with IntelliJ IDEA 14.
 
-To generate a new jar file from the source using sbt, type: sbt package
+To generate a new jar file from the source using sbt:
+sbt package
 
-To generate the scaladoc, type: sbt doc
+To generate the scaladoc:
+sbt doc
