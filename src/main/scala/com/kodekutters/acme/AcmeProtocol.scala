@@ -67,7 +67,6 @@ package object AcmeProtocol {
     implicit val fmt = Json.format[AcmeIdentifier]
   }
 
-  // todo is serialNumbers Int, Long or a real number?
   /**
    * A JSON object that contains various clues for the client about what the requested key is, such that the client can find it.
    *
