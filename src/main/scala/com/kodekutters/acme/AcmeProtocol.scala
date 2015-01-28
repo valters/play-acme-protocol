@@ -25,15 +25,11 @@ package object AcmeProtocol {
 
   /**
    * determine if the input string is a valid acme message of any 'type'.
-   * Note: the input string is trim before testing
    * @param t the input string to test
    * @return true if the input represents a valid acme type, else false
    */
   def isAcmeType(t: String): Boolean = {
-    if (t == null)
-      false
-    else
-      messageTypeSet.contains(t.trim) || challengeTypeSet.contains(t.trim) || responseTypeSet.contains(t.trim) || requestTypeSet.contains(t.trim)
+    messageTypeSet.contains(t) || challengeTypeSet.contains(t) || responseTypeSet.contains(t) || requestTypeSet.contains(t)
   }
 
   /**
