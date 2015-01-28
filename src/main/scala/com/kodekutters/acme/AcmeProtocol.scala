@@ -233,18 +233,24 @@ package object AcmeProtocol {
         case x: RecoveryToken => Json.format[RecoveryToken].writes(x)
         case x: ChallengeProofOfPossession => Json.format[ChallengeProofOfPossession].writes(x)
         case x: ChallengeRecoveryContact => Json.format[ChallengeRecoveryContact].writes(x)
+        case x => JsNull
       }
     }
 
     implicit val challengeTypeReads = new Reads[ChallengeType] {
       def reads(json: JsValue) = {
-        (json \ "type").as[String] match {
-          case x if ChallengeTypeEnum.simpleHttps.toString == x => Json.format[ChallengeSimpleHTTPS].reads(json)
-          case x if ChallengeTypeEnum.dvsni.toString == x => Json.format[ChallengeDVSNI].reads(json)
-          case x if ChallengeTypeEnum.dns.toString == x  => Json.format[ChallengeDNS].reads(json)
-          case x if ChallengeTypeEnum.recoveryToken.toString == x  => Json.format[RecoveryToken].reads(json)
-          case x if ChallengeTypeEnum.proofOfPossession.toString == x  => Json.format[ChallengeProofOfPossession].reads(json)
-          case x if ChallengeTypeEnum.recoveryContact.toString == x  => Json.format[ChallengeRecoveryContact].reads(json)
+        (json \ "type").asOpt[String] match {
+          case Some(typeName) => {
+            ChallengeTypeEnum.withName(typeName) match {
+              case ChallengeTypeEnum.simpleHttps => Json.format[ChallengeSimpleHTTPS].reads(json)
+              case ChallengeTypeEnum.dvsni => Json.format[ChallengeDVSNI].reads(json)
+              case ChallengeTypeEnum.dns => Json.format[ChallengeDNS].reads(json)
+              case ChallengeTypeEnum.recoveryToken => Json.format[RecoveryToken].reads(json)
+              case ChallengeTypeEnum.recoveryContact => Json.format[ChallengeProofOfPossession].reads(json)
+              case ChallengeTypeEnum.proofOfPossession => Json.format[ChallengeRecoveryContact].reads(json)
+            }
+          }
+          case None => JsError("could not read jsValue: \"" + json + "\" into a ChallengeType")
         }
       }
     }
@@ -290,9 +296,10 @@ package object AcmeProtocol {
    * @param nonce A random 16-byte octet string, base64-encoded
    * @param hints A JSON object that contains various clues for the client about what the requested key is,
    *              such that the client can find it. May include a jwk object.
-  */
+   */
   final case class ChallengeProofOfPossession(`type`: String = ChallengeTypeEnum.proofOfPossession.toString,
                                               alg: String, nonce: String, hints: Hints) extends ChallengeType
+
   /**
    * a recovery contact challenge
    * @param type type of the challenge, "recoveryContact"
@@ -361,6 +368,7 @@ package object AcmeProtocol {
           case x if ResponseTypeEnum.authorization.toString == x => Json.format[Authorization].reads(json)
           case x if ResponseTypeEnum.certificate.toString == x => Json.format[CertificateIssuance].reads(json)
           case x if ResponseTypeEnum.revocation.toString == x => Json.format[Revocation].reads(json)
+          case x => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
         }
       }
     }
@@ -378,6 +386,7 @@ package object AcmeProtocol {
         case x: Authorization => Json.format[Authorization].writes(x)
         case x: CertificateIssuance => Json.format[CertificateIssuance].writes(x)
         case x: Revocation => Json.format[Revocation].writes(x)
+        case x => JsNull
       }
     }
 
