@@ -300,16 +300,16 @@ package object AcmeProtocol {
           case None => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
           case Some(typeString) =>
             typeString match {
-                case x if simpleHttps == x => Json.format[SimpleHTTPSResponse].reads(json)
-                case x if dvsni == x => dvsniReads(json)
-                case x if dns == x => Json.format[ChallengeDNSResponse].reads(json)
-                case x if recoveryToken == x => Json.format[RecoveryTokenResponse].reads(json)
-                case x if proofOfPossession == x => Json.format[ChallengeProofOfPossessionResponse].reads(json)
-                case x if recoveryContact == x => Json.format[RecoveryContactResponse].reads(json)
-                case x if challenge == x => Json.format[Challenge].reads(json)
-                case x if authorization == x => Json.format[Authorization].reads(json)
-                case x if certificate == x => Json.format[CertificateIssuance].reads(json)
-                case x if revocation == x => Json.format[Revocation].reads(json)
+                case `simpleHttps` => Json.format[SimpleHTTPSResponse].reads(json)
+                case `dvsni` => dvsniReads(json)
+                case `dns` => Json.format[ChallengeDNSResponse].reads(json)
+                case `recoveryToken` => Json.format[RecoveryTokenResponse].reads(json)
+                case `proofOfPossession` => Json.format[ChallengeProofOfPossessionResponse].reads(json)
+                case `recoveryContact` => Json.format[RecoveryContactResponse].reads(json)
+                case `challenge` => Json.format[Challenge].reads(json)
+                case `authorization` => Json.format[Authorization].reads(json)
+                case `certificate` => Json.format[CertificateIssuance].reads(json)
+                case `revocation` => Json.format[Revocation].reads(json)
                 case _ => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
               }
         }
