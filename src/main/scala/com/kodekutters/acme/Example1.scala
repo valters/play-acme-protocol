@@ -57,7 +57,7 @@ object Example1 {
     // convert the scala AuthorizationRequest into a json message
     println("\njson authReq: " + Json.toJson(authReq))
 
-    // exercising the challengeTypeToJsValue implicit
+    // another test
 
     // some challenges
     val simpleHTTPS = new ChallengeSimpleHTTPS(token = newToken)
@@ -73,8 +73,7 @@ object Example1 {
     theCombinations(1)(0) = 1
     theCombinations(1)(1) = 2
 
-    // create a challenge response, note the challengeList is a list[ChallengeType]
-    // the implicit will convert it to the required List[JsValue]
+    // create a challenge response
     val theChallenge = new Challenge(sessionID = newNonce, nonce = newNonce, challenges = challengeList, combinations = theCombinations)
 
     println("\ntheChallenge: " + theChallenge)

@@ -220,12 +220,33 @@ package object AcmeProtocol {
   sealed trait ChallengeType
 
   object ChallengeType {
-    implicit val fmt1 = Json.format[ChallengeSimpleHTTPS]
-    implicit val fmt2 = Json.format[ChallengeDVSNI]
-    implicit val fmt3 = Json.format[ChallengeDNS]
-    implicit val fmt4 = Json.format[RecoveryToken]
-    implicit val fmt5 = Json.format[ChallengeProofOfPossession]
-    implicit val fmt6 = Json.format[ChallengeRecoveryContact]
+
+    implicit val challengeTypeWrites = new Writes[ChallengeType] {
+      def writes(c: ChallengeType) = c match {
+        case x: ChallengeSimpleHTTPS => Json.format[ChallengeSimpleHTTPS].writes(x)
+        case x: ChallengeDVSNI => Json.format[ChallengeDVSNI].writes(x)
+        case x: ChallengeDNS => Json.format[ChallengeDNS].writes(x)
+        case x: RecoveryToken => Json.format[RecoveryToken].writes(x)
+        case x: ChallengeProofOfPossession => Json.format[ChallengeProofOfPossession].writes(x)
+        case x: ChallengeRecoveryContact => Json.format[ChallengeRecoveryContact].writes(x)
+      }
+    }
+
+    implicit val challengeTypeReads = new Reads[ChallengeType] {
+      def reads(json: JsValue) = {
+        (json \ "type").as[String] match {
+          case x if ChallengeTypeEnum.simpleHttps.toString == x => Json.format[ChallengeSimpleHTTPS].reads(json)
+          case x if ChallengeTypeEnum.dvsni.toString == x => Json.format[ChallengeDVSNI].reads(json)
+          case x if ChallengeTypeEnum.dns.toString == x  => Json.format[ChallengeDNS].reads(json)
+          case x if ChallengeTypeEnum.recoveryToken.toString == x  => Json.format[RecoveryToken].reads(json)
+          case x if ChallengeTypeEnum.proofOfPossession.toString == x  => Json.format[ChallengeProofOfPossession].reads(json)
+          case x if ChallengeTypeEnum.recoveryContact.toString == x  => Json.format[ChallengeRecoveryContact].reads(json)
+        }
+      }
+    }
+
+    implicit val fmt: Format[ChallengeType] = Format(challengeTypeReads, challengeTypeWrites)
+
   }
 
   /**
@@ -314,17 +335,50 @@ package object AcmeProtocol {
   sealed trait ResponseType
 
   object ResponseType {
-    implicit val fmt1 = Json.format[SimpleHTTPSResponse]
-    implicit val fmt2 = Json.format[DVSNIResponceR]
-    implicit val fmt3 = Json.format[DVSNIResponceS]
-    implicit val fmt4 = Json.format[ChallengeDNSResponse]
-    implicit val fmt5 = Json.format[RecoveryTokenResponse]
-    implicit val fmt6 = Json.format[ChallengeProofOfPossessionResponse]
-    implicit val fmt7 = Json.format[Challenge]
-    implicit val fmt8 = Json.format[RecoveryContactResponse]
-    implicit val fmt9 = Json.format[Authorization]
-    implicit val fmt10 = Json.format[CertificateIssuance]
-    implicit val fmt11 = Json.format[Revocation]
+
+    private def dvsniReads(js: JsValue) = {
+      if ((js \ "s").asOpt[String].isDefined) Json.format[DVSNIResponceS].reads(js)
+      else
+      if ((js \ "r").asOpt[String].isDefined) Json.format[DVSNIResponceR].reads(js)
+      else
+        JsError("could not read jsValue: \"" + js + "\" into a dvsni")
+    }
+
+    implicit val responseTypeReads = new Reads[ResponseType] {
+      def reads(json: JsValue) = {
+        (json \ "type").as[String] match {
+          case x if ChallengeTypeEnum.simpleHttps.toString == x => Json.format[SimpleHTTPSResponse].reads(json)
+          case x if ChallengeTypeEnum.dvsni.toString == x => dvsniReads(json)
+          case x if ChallengeTypeEnum.dns.toString == x => Json.format[ChallengeDNSResponse].reads(json)
+          case x if ChallengeTypeEnum.recoveryToken.toString == x => Json.format[RecoveryTokenResponse].reads(json)
+          case x if ChallengeTypeEnum.proofOfPossession.toString == x => Json.format[ChallengeProofOfPossessionResponse].reads(json)
+          case x if ChallengeTypeEnum.recoveryContact.toString == x => Json.format[RecoveryContactResponse].reads(json)
+          case x if ResponseTypeEnum.challenge.toString == x => Json.format[Challenge].reads(json)
+          case x if ResponseTypeEnum.authorization.toString == x => Json.format[Authorization].reads(json)
+          case x if ResponseTypeEnum.certificate.toString == x => Json.format[CertificateIssuance].reads(json)
+          case x if ResponseTypeEnum.revocation.toString == x => Json.format[Revocation].reads(json)
+        }
+      }
+    }
+
+    implicit val responseTypeWrites = new Writes[ResponseType] {
+      def writes(c: ResponseType) = c match {
+        case x: SimpleHTTPSResponse => Json.format[SimpleHTTPSResponse].writes(x)
+        case x: DVSNIResponceS => Json.format[DVSNIResponceS].writes(x)
+        case x: DVSNIResponceR => Json.format[DVSNIResponceR].writes(x)
+        case x: ChallengeDNSResponse => Json.format[ChallengeDNSResponse].writes(x)
+        case x: RecoveryTokenResponse => Json.format[RecoveryTokenResponse].writes(x)
+        case x: ChallengeProofOfPossessionResponse => Json.format[ChallengeProofOfPossessionResponse].writes(x)
+        case x: RecoveryContactResponse => Json.format[RecoveryContactResponse].writes(x)
+        case x: Challenge => Json.format[Challenge].writes(x)
+        case x: Authorization => Json.format[Authorization].writes(x)
+        case x: CertificateIssuance => Json.format[CertificateIssuance].writes(x)
+        case x: Revocation => Json.format[Revocation].writes(x)
+      }
+    }
+
+    implicit val fmt: Format[ResponseType] = Format(responseTypeReads, responseTypeWrites)
+
   }
 
   /**
@@ -373,7 +427,6 @@ package object AcmeProtocol {
   final case class ChallengeProofOfPossessionResponse(`type`: String = ChallengeTypeEnum.proofOfPossession.toString,
                                                       nonce: String, signature: AcmeSignature) extends ResponseType
 
-  // todo challenges: Seq[ChallengeType], see challengeTypeToJsValue implicit for now
   /**
    * a challenge response
    * @param type type of the response, "challenge"
@@ -386,7 +439,7 @@ package object AcmeProtocol {
    *                     Challenges are represented by their associated zero-based index in the challenges array.
    */
   final case class Challenge(`type`: String = ResponseTypeEnum.challenge.toString,
-                             sessionID: String, nonce: String, challenges: List[JsValue] = List.empty,
+                             sessionID: String, nonce: String, challenges: List[ChallengeType] = List.empty,
                              combinations: Array[Array[Int]]) extends ResponseType
 
   /**
@@ -511,55 +564,11 @@ package object AcmeProtocol {
    *                  in the response array is set to null. Otherwise, it is set to a value defined by the challenge type.
    * @param contact An array of URIs that the server can use to contact the client for issues related to this authorization.
    */
-  // todo responses: should be List[ResponseType], see authRespTypeToJsValue implicit for now
   final case class AuthorizationRequest(`type`: String = RequestTypeEnum.authorizationRequest.toString,
                                         sessionID: String,
                                         nonce: String,
                                         signature: AcmeSignature,
-                                        responses: List[JsValue] = List.empty,
+                                        responses: List[ResponseType] = List.empty,
                                         contact: Option[List[Contact]] = None) extends RequestType
-
-  //
-  // temporary implicits to help AuthorizationRequest and Challenge response
-  //
-
-  implicit def authRespTypeToJsValue(responseTypeList: List[ResponseType]): List[JsValue] = {
-    try {
-      responseTypeList.map(c => c match {
-        case x: Revocation => Json.toJson[Revocation](x)
-        case x: CertificateIssuance => Json.toJson[CertificateIssuance](x)
-        case x: Authorization => Json.toJson[Authorization](x)
-        case x: RecoveryContactResponse => Json.toJson[RecoveryContactResponse](x)
-        case x: Challenge => Json.toJson[Challenge](x)
-        case x: ChallengeProofOfPossessionResponse => Json.toJson[ChallengeProofOfPossessionResponse](x)
-        case x: RecoveryTokenResponse => Json.toJson[RecoveryTokenResponse](x)
-        case x: ChallengeDNSResponse => Json.toJson[ChallengeDNSResponse](x)
-        case x: DVSNIResponceS => Json.toJson[DVSNIResponceS](x)
-        case x: DVSNIResponceR => Json.toJson[DVSNIResponceR](x)
-        case x: SimpleHTTPSResponse => Json.toJson[SimpleHTTPSResponse](x)
-        case x => JsNull
-      }).toList
-    }
-    catch {
-      case e: Exception => List.empty[JsValue]
-    }
-  }
-
-  implicit def challengeTypeToJsValue(challengeTypeList: List[ChallengeType]): List[JsValue] = {
-    try {
-      challengeTypeList.map(c => c match {
-        case x: ChallengeSimpleHTTPS => Json.toJson[ChallengeSimpleHTTPS](x)
-        case x: ChallengeDNS => Json.toJson[ChallengeDNS](x)
-        case x: RecoveryToken => Json.toJson[RecoveryToken](x)
-        case x: ChallengeRecoveryContact => Json.toJson[ChallengeRecoveryContact](x)
-        case x: ChallengeProofOfPossession => Json.toJson[ChallengeProofOfPossession](x)
-        case x: ChallengeDVSNI => Json.toJson[ChallengeDVSNI](x)
-        case x => JsNull
-      }).toList
-    }
-    catch {
-      case e: Exception => List.empty[JsValue]
-    }
-  }
 
 }
