@@ -3,6 +3,8 @@ package com.kodekutters.acme
 import com.nimbusds.jose.jwk.JWK
 import play.api.libs.json._
 
+import scala.reflect.ClassTag
+
 /**
  * ACME protocol objects and messages package
  *
@@ -101,6 +103,7 @@ package object AcmeProtocol {
 
   /**
    * ACME simple JSON-based structure for encoding signature.
+   *
    * @param alg A token indicating the cryptographic algorithm used to compute the signature {{I-D.ietf-jose-json-web-algorithms}}.
    *            (MAC algorithms such as "HS*" MUST NOT be used.)
    * @param sig The signature, base64-encoded.
@@ -127,7 +130,7 @@ package object AcmeProtocol {
     implicit def messageTypeEnumToString(value: MessageTypeEnum.Value): String = value.toString
 
     /**
-     * returns the enumeration value as an option given a string representation of the enumeration name
+     * safely returns the enumeration value as an option given a string representation of the enumeration name
      * @param s the input string representing the enumeration type
      * @return the enumeration value or None
      */
@@ -191,7 +194,8 @@ package object AcmeProtocol {
   //----------------------------------------------------------------------------
 
   /**
-   * enumeration of acme challenge types: simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession.
+   * enumeration of acme challenge types:
+   * simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession.
    * Note: values in ChallengeTypeEnum can also be used in responses as well as challenges
    */
   object ChallengeTypeEnum extends Enumeration {
@@ -201,7 +205,7 @@ package object AcmeProtocol {
     implicit def challengeTypeEnumToString(value: ChallengeTypeEnum.Value): String = value.toString
 
     /**
-     * returns the enumeration value as an option given a string representation of the enumeration name
+     * safely returns the enumeration value as an option given a string representation of the enumeration name
      * @param s the input string representing the enumeration type
      * @return the enumeration value
      */
@@ -315,7 +319,7 @@ package object AcmeProtocol {
     implicit def responseTypeEnumToString(value: ResponseTypeEnum.Value): String = value.toString
 
     /**
-     * returns the enumeration value as an option given a string representation of the enumeration name
+     * safely returns the enumeration value as an option given a string representation of the enumeration name
      * @param s the input string representing the enumeration type
      * @return the enumeration value
      */
@@ -440,7 +444,7 @@ package object AcmeProtocol {
    */
   final case class Challenge(`type`: String = ResponseTypeEnum.challenge.toString,
                              sessionID: String, nonce: String, challenges: List[ChallengeType] = List.empty,
-                             combinations: Array[Array[Int]]) extends ResponseType
+                             combinations: Option[Array[Array[Int]]]) extends ResponseType
 
   /**
    * a recovery contact response
@@ -496,7 +500,7 @@ package object AcmeProtocol {
     implicit def requestTypeEnumToString(value: RequestTypeEnum.Value): String = value.toString
 
     /**
-     * returns the enumeration value as an option given a string representation of the enumeration name
+     * safely returns the enumeration value as an option given a string representation of the enumeration name
      * @param s the input string representing the enumeration type
      * @return the enumeration value
      */

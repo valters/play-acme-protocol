@@ -57,7 +57,6 @@ object Example1 {
     // convert the scala AuthorizationRequest into a json message
     println("\njson authReq: " + Json.toJson(authReq))
 
-    // another test
 
     // some challenges
     val simpleHTTPS = new ChallengeSimpleHTTPS(token = newToken)
@@ -67,14 +66,14 @@ object Example1 {
     val challengeList = List(simpleHTTPS, dns, recoveryToken)
 
     // the challenges combinations
-    val theCombinations = Array.ofDim[Int](2, 2)
-    theCombinations(0)(0) = 0
-    theCombinations(0)(1) = 2
-    theCombinations(1)(0) = 1
-    theCombinations(1)(1) = 2
+    val combins = Array.ofDim[Int](2, 2)
+    combins(0)(0) = 0
+    combins(0)(1) = 2
+    combins(1)(0) = 1
+    combins(1)(1) = 2
 
     // create a challenge response
-    val theChallenge = new Challenge(sessionID = newNonce, nonce = newNonce, challenges = challengeList, combinations = theCombinations)
+    val theChallenge = new Challenge(sessionID = newNonce, nonce = newNonce, challenges = challengeList, combinations = Some(combins))
 
     println("\ntheChallenge: " + theChallenge)
 
