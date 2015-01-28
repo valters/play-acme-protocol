@@ -3,8 +3,6 @@ package com.kodekutters.acme
 import com.nimbusds.jose.jwk.JWK
 import play.api.libs.json._
 
-import scala.reflect.ClassTag
-
 /**
  * ACME protocol objects and messages package
  *
@@ -32,12 +30,10 @@ package object AcmeProtocol {
    * @return true if the input represents a valid acme type, else false
    */
   def isAcmeType(t: String): Boolean = {
-    if (t == null) false
+    if (t == null)
+      false
     else
-      MessageTypeEnum.withNameString(t.trim).isDefined ||
-        ChallengeTypeEnum.withNameString(t.trim).isDefined ||
-        ResponseTypeEnum.withNameString(t.trim).isDefined ||
-        RequestTypeEnum.withNameString(t.trim).isDefined
+      messageTypeSet.contains(t.trim) || challengeTypeSet.contains(t.trim) || responseTypeSet.contains(t.trim) || requestTypeSet.contains(t.trim)
   }
 
   /**
@@ -62,7 +58,7 @@ package object AcmeProtocol {
    */
   final case class AcmeIdentifier(`type`: String = "dns", value: String = "dns") {
     // consider only "dns" for now  todo
-    def identifierValid = "dns".equalsIgnoreCase(`type`) && "dns".equalsIgnoreCase(value)
+    def identifierValid = "dns" == `type` && "dns" == value
   }
 
   object AcmeIdentifier {
@@ -121,27 +117,10 @@ package object AcmeProtocol {
   //----------------------------------------------------------------------------
 
   /**
-   * enumeration of acme general message types: error, defer, statusRequest
+   * acme general message types: error, defer, statusRequest
    */
-  object MessageTypeEnum extends Enumeration {
-    type MessageTypeEnum = Value
-    val error, defer, statusRequest = Value
-
-    implicit def messageTypeEnumToString(value: MessageTypeEnum.Value): String = value.toString
-
-    /**
-     * safely returns the enumeration value as an option given a string representation of the enumeration name
-     * @param s the input string representing the enumeration type
-     * @return the enumeration value or None
-     */
-    def withNameString(s: String): Option[MessageTypeEnum] = {
-      try {
-        Option(MessageTypeEnum.withName(s))
-      } catch {
-        case e: NoSuchElementException => None
-      }
-    }
-  }
+  val error = "error"; val defer = "defer"; val statusRequest = "statusRequest"
+  val messageTypeSet = Set(error, defer, statusRequest)
 
   /**
    * an acme message type
@@ -164,9 +143,7 @@ package object AcmeProtocol {
    *                 configuration to allow the request to succeed, or documentation
    *                 of CA issuance policies that describe why the request cannot be fulfilled
    */
-  final case class AcmeErrorMessage(`type`: String = MessageTypeEnum.error.toString,
-                                    error: String,
-                                    message: Option[String] = None,
+  final case class AcmeErrorMessage(`type`: String = error, error: String, message: Option[String] = None,
                                     moreInfo: Option[String] = None) extends MessageType
 
   /**
@@ -177,9 +154,7 @@ package object AcmeProtocol {
    *                 (This is a recommendation only, and clients SHOULD enforce minimum and maximum deferral times.)
    * @param message A human-readable string describing the reason for the deferral
    */
-  final case class AcmeDefer(`type`: String = MessageTypeEnum.defer.toString,
-                             token: String,
-                             interval: Option[Int] = None,
+  final case class AcmeDefer(`type`: String = defer, token: String, interval: Option[Int] = None,
                              message: Option[String] = None) extends MessageType
 
   /**
@@ -187,36 +162,19 @@ package object AcmeProtocol {
    * @param type type of the acme message, "statusRequest"
    * @param token An opaque value that was provided in a defer message
    */
-  final case class AcmeStatusRequest(`type`: String = MessageTypeEnum.statusRequest.toString, token: String) extends MessageType
+  final case class AcmeStatusRequest(`type`: String = statusRequest, token: String) extends MessageType
 
   //----------------------------------------------------------------------------
   //-----------------Challenges-------------------------------------------------
   //----------------------------------------------------------------------------
 
   /**
-   * enumeration of acme challenge types:
-   * simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession.
-   * Note: values in ChallengeTypeEnum can also be used in responses as well as challenges
+   * enumeration of acme challenge types: simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession.
+   * Note: values in challengeTypeSet can also be used in responses as well as challenges
    */
-  object ChallengeTypeEnum extends Enumeration {
-    type ChallengeTypeEnum = Value
-    val simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession = Value
-
-    implicit def challengeTypeEnumToString(value: ChallengeTypeEnum.Value): String = value.toString
-
-    /**
-     * safely returns the enumeration value as an option given a string representation of the enumeration name
-     * @param s the input string representing the enumeration type
-     * @return the enumeration value
-     */
-    def withNameString(s: String): Option[ChallengeTypeEnum] = {
-      try {
-        Option(ChallengeTypeEnum.withName(s))
-      } catch {
-        case e: NoSuchElementException => None
-      }
-    }
-  }
+  val simpleHttps = "simpleHttps"; val dvsni  = "dvsni"; val dns = "dns"; val recoveryToken = "recoveryToken"
+  val recoveryContact = "recoveryContact"; val proofOfPossession = "proofOfPossession"
+  val challengeTypeSet = Set(simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession)
 
   /**
    * a challenge type message
@@ -233,7 +191,7 @@ package object AcmeProtocol {
         case x: RecoveryToken => Json.format[RecoveryToken].writes(x)
         case x: ChallengeProofOfPossession => Json.format[ChallengeProofOfPossession].writes(x)
         case x: ChallengeRecoveryContact => Json.format[ChallengeRecoveryContact].writes(x)
-        case x => JsNull
+        case _ => JsNull
       }
     }
 
@@ -241,17 +199,15 @@ package object AcmeProtocol {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
           case None => JsError("could not read jsValue: \"" + json + "\" into a ChallengeType")
-          case Some(typeString) =>
-            if (ChallengeTypeEnum.withNameString(typeString).isDefined) {
-              ChallengeTypeEnum.withName(typeString) match {
-                case ChallengeTypeEnum.simpleHttps => Json.format[ChallengeSimpleHTTPS].reads(json)
-                case ChallengeTypeEnum.dvsni => Json.format[ChallengeDVSNI].reads(json)
-                case ChallengeTypeEnum.dns => Json.format[ChallengeDNS].reads(json)
-                case ChallengeTypeEnum.recoveryToken => Json.format[RecoveryToken].reads(json)
-                case ChallengeTypeEnum.recoveryContact => Json.format[ChallengeProofOfPossession].reads(json)
-                case ChallengeTypeEnum.proofOfPossession => Json.format[ChallengeRecoveryContact].reads(json)
-              }
-            } else JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
+          case Some(typeString) => typeString match {
+            case `simpleHttps` => Json.format[ChallengeSimpleHTTPS].reads(json)
+            case `dvsni` => Json.format[ChallengeDVSNI].reads(json)
+            case `dns` => Json.format[ChallengeDNS].reads(json)
+            case `recoveryToken` => Json.format[RecoveryToken].reads(json)
+            case `recoveryContact` => Json.format[ChallengeProofOfPossession].reads(json)
+            case `proofOfPossession` => Json.format[ChallengeRecoveryContact].reads(json)
+            case _ => JsError("could not read jsValue: \"" + json + "\" into a ChallengeType")
+          }
         }
       }
     }
@@ -266,13 +222,13 @@ package object AcmeProtocol {
    * @param token The value to be provisioned in the file. This value MUST have at least 128 bits of entropy,
    *              in order to prevent an attacker from guessing it. It MUST NOT contain any non-ASCII characters.
    */
-  final case class ChallengeSimpleHTTPS(`type`: String = ChallengeTypeEnum.simpleHttps.toString, token: String) extends ChallengeType
+  final case class ChallengeSimpleHTTPS(`type`: String = simpleHttps, token: String) extends ChallengeType
 
   /**
    * a dvsni challenge
    * @param type type of the challenge, "dvsni"
    */
-  final case class ChallengeDVSNI(`type`: String = ChallengeTypeEnum.dvsni.toString) extends ChallengeType
+  final case class ChallengeDVSNI(`type`: String = dvsni) extends ChallengeType
 
   /**
    * a dns challenge
@@ -281,13 +237,13 @@ package object AcmeProtocol {
    *              This string SHOULD be randomly generated, with at least 128 bits of entropy
    *              (e.g., a hex-encoded random octet string).
    */
-  final case class ChallengeDNS(`type`: String = ChallengeTypeEnum.dns.toString, token: String) extends ChallengeType
+  final case class ChallengeDNS(`type`: String = dns, token: String) extends ChallengeType
 
   /**
    * a recovery token challenge
    * @param type type of the challenge, "recoveryToken"
    */
-  final case class RecoveryToken(`type`: String = ChallengeTypeEnum.recoveryToken.toString) extends ChallengeType
+  final case class RecoveryToken(`type`: String = recoveryToken) extends ChallengeType
 
   /**
    * a proofOfPossession challenge
@@ -298,8 +254,8 @@ package object AcmeProtocol {
    * @param hints A JSON object that contains various clues for the client about what the requested key is,
    *              such that the client can find it. May include a jwk object.
    */
-  final case class ChallengeProofOfPossession(`type`: String = ChallengeTypeEnum.proofOfPossession.toString,
-                                              alg: String, nonce: String, hints: Hints) extends ChallengeType
+  final case class ChallengeProofOfPossession(`type`: String = proofOfPossession, alg: String,
+                                              nonce: String, hints: Hints) extends ChallengeType
 
   /**
    * a recovery contact challenge
@@ -308,41 +264,23 @@ package object AcmeProtocol {
    * @param successURL A URL the client may poll to determine if the user has successfully clicked a link or completed other tasks specified by the recovery message.
    * @param contact A full or partly obfuscated version of the contact URI that the server will use to contact the client.
    */
-  final case class ChallengeRecoveryContact(`type`: String = ChallengeTypeEnum.recoveryContact.toString,
-                                            activationURL: Option[String] = None, successURL: Option[String] = None,
-                                            contact: Option[Contact] = None) extends ChallengeType
+  final case class ChallengeRecoveryContact(`type`: String = recoveryContact, activationURL: Option[String] = None,
+                                            successURL: Option[String] = None, contact: Option[Contact] = None) extends ChallengeType
 
   //----------------------------------------------------------------------------
   //-----------------Responses--------------------------------------------------
   //----------------------------------------------------------------------------
 
   /**
-   * enumeration of acme response message types:
-   * challenge, authorization, revocation, certificate
+   * acme response message types: challenge, authorization, revocation, certificate
    */
-  object ResponseTypeEnum extends Enumeration {
-    type ResponseTypeEnum = Value
-    val challenge, authorization, revocation, certificate = Value
-
-    implicit def responseTypeEnumToString(value: ResponseTypeEnum.Value): String = value.toString
-
-    /**
-     * safely returns the enumeration value as an option given a string representation of the enumeration name
-     * @param s the input string representing the enumeration type
-     * @return the enumeration value
-     */
-    def withNameString(s: String): Option[ResponseTypeEnum] = {
-      try {
-        Option(ResponseTypeEnum.withName(s))
-      } catch {
-        case e: NoSuchElementException => None
-      }
-    }
-  }
+  val challenge = "challenge"; val authorization = "authorization"
+  val revocation = "revocation"; val certificate = "certificate"
+  val responseTypeSet = Set(challenge, authorization, revocation, certificate)
 
   /**
    * an acme response message type
-   * Note: ResponseTypeEnum set as well as responses to challenges are ResponseType messages
+   * Note: values in responseTypeSet can also be used in responses to challenges as well as ResponseType messages
    */
   sealed trait ResponseType
 
@@ -361,21 +299,19 @@ package object AcmeProtocol {
         (json \ "type").asOpt[String] match {
           case None => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
           case Some(typeString) =>
-            if (ChallengeTypeEnum.withNameString(typeString).isDefined || ResponseTypeEnum.withNameString(typeString).isDefined) {
-              typeString match {
-                case x if ChallengeTypeEnum.simpleHttps.toString == x => Json.format[SimpleHTTPSResponse].reads(json)
-                case x if ChallengeTypeEnum.dvsni.toString == x => dvsniReads(json)
-                case x if ChallengeTypeEnum.dns.toString == x => Json.format[ChallengeDNSResponse].reads(json)
-                case x if ChallengeTypeEnum.recoveryToken.toString == x => Json.format[RecoveryTokenResponse].reads(json)
-                case x if ChallengeTypeEnum.proofOfPossession.toString == x => Json.format[ChallengeProofOfPossessionResponse].reads(json)
-                case x if ChallengeTypeEnum.recoveryContact.toString == x => Json.format[RecoveryContactResponse].reads(json)
-                case x if ResponseTypeEnum.challenge.toString == x => Json.format[Challenge].reads(json)
-                case x if ResponseTypeEnum.authorization.toString == x => Json.format[Authorization].reads(json)
-                case x if ResponseTypeEnum.certificate.toString == x => Json.format[CertificateIssuance].reads(json)
-                case x if ResponseTypeEnum.revocation.toString == x => Json.format[Revocation].reads(json)
-                case x => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
+            typeString match {
+                case x if simpleHttps == x => Json.format[SimpleHTTPSResponse].reads(json)
+                case x if dvsni == x => dvsniReads(json)
+                case x if dns == x => Json.format[ChallengeDNSResponse].reads(json)
+                case x if recoveryToken == x => Json.format[RecoveryTokenResponse].reads(json)
+                case x if proofOfPossession == x => Json.format[ChallengeProofOfPossessionResponse].reads(json)
+                case x if recoveryContact == x => Json.format[RecoveryContactResponse].reads(json)
+                case x if challenge == x => Json.format[Challenge].reads(json)
+                case x if authorization == x => Json.format[Authorization].reads(json)
+                case x if certificate == x => Json.format[CertificateIssuance].reads(json)
+                case x if revocation == x => Json.format[Revocation].reads(json)
+                case _ => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
               }
-            } else JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
         }
       }
     }
@@ -393,7 +329,7 @@ package object AcmeProtocol {
         case x: Authorization => Json.format[Authorization].writes(x)
         case x: CertificateIssuance => Json.format[CertificateIssuance].writes(x)
         case x: Revocation => Json.format[Revocation].writes(x)
-        case x => JsNull
+        case _ => JsNull
       }
     }
 
@@ -408,7 +344,7 @@ package object AcmeProtocol {
    *             form the path at which the nonce resource is provisioned. The result of concatenating
    *             the prefix with this value MUST match the "path" production in the standard URI format {{RFC3986}}
    */
-  final case class SimpleHTTPSResponse(`type`: String = ChallengeTypeEnum.simpleHttps.toString, path: String) extends ResponseType
+  final case class SimpleHTTPSResponse(`type`: String = simpleHttps, path: String) extends ResponseType
 
   /**
    * random value and nonce (server) response to a dvsni challenge request
@@ -416,27 +352,27 @@ package object AcmeProtocol {
    * @param r A random 32-byte octet, base64-encoded
    * @param nonce A random 16-byte octet string, hex-encoded (so that it can be used as a DNS label)
    */
-  final case class DVSNIResponceR(`type`: String = ChallengeTypeEnum.dvsni.toString, r: String, nonce: String) extends ResponseType
+  final case class DVSNIResponceR(`type`: String = dvsni, r: String, nonce: String) extends ResponseType
 
   /**
    * random value (client) response to a dvsni challenge request
    * @param type type of the response, "dvsni"
    * @param s A random 32-byte secret octet string, base64-encoded
    */
-  final case class DVSNIResponceS(`type`: String = ChallengeTypeEnum.dvsni.toString, s: String) extends ResponseType
+  final case class DVSNIResponceS(`type`: String = dvsni, s: String) extends ResponseType
 
   /**
    * a response to a dns challenge
    * @param type type of the response, "dns"
    */
-  final case class ChallengeDNSResponse(`type`: String = ChallengeTypeEnum.dns.toString) extends ResponseType
+  final case class ChallengeDNSResponse(`type`: String = dns) extends ResponseType
 
   /**
    * a recovery token response
    * @param type type of the challenge, "recoveryToken
    * @param token The recovery token provided by the server.
    */
-  final case class RecoveryTokenResponse(`type`: String = ChallengeTypeEnum.recoveryToken.toString, token: Option[String]) extends ResponseType
+  final case class RecoveryTokenResponse(`type`: String = recoveryToken, token: Option[String]) extends ResponseType
 
   /**
    * a response to a proofOfPossession challenge
@@ -444,8 +380,8 @@ package object AcmeProtocol {
    * @param nonce A random 16-byte octet string, base64-encoded
    * @param signature The ACME signature computed over the signature-input using the server-specified algorithm
    */
-  final case class ChallengeProofOfPossessionResponse(`type`: String = ChallengeTypeEnum.proofOfPossession.toString,
-                                                      nonce: String, signature: AcmeSignature) extends ResponseType
+  final case class ChallengeProofOfPossessionResponse(`type`: String = proofOfPossession, nonce: String,
+                                                      signature: AcmeSignature) extends ResponseType
 
   /**
    * a challenge response
@@ -458,8 +394,8 @@ package object AcmeProtocol {
    *                     Clients SHOULD complete a set of challenges that that covers at least one set in this array.
    *                     Challenges are represented by their associated zero-based index in the challenges array.
    */
-  final case class Challenge(`type`: String = ResponseTypeEnum.challenge.toString,
-                             sessionID: String, nonce: String, challenges: List[ChallengeType] = List.empty,
+  final case class Challenge(`type`: String = challenge, sessionID: String, nonce: String,
+                             challenges: List[ChallengeType] = List.empty,
                              combinations: Option[Array[Array[Int]]]) extends ResponseType
 
   /**
@@ -467,7 +403,7 @@ package object AcmeProtocol {
    * @param type type of the response, "recoveryContact"
    * @param token If the user transferred a token from a contact email or call into the client software, the client sends it here.
    */
-  final case class RecoveryContactResponse(`type`: String = ChallengeTypeEnum.recoveryContact.toString, token: Option[String] = None) extends ResponseType
+  final case class RecoveryContactResponse(`type`: String = recoveryContact, token: Option[String] = None) extends ResponseType
 
   /**
    * an authorization response message
@@ -478,8 +414,8 @@ package object AcmeProtocol {
    * @param identifier The identifier for which authorization has been granted.
    * @param jwk A JSON Web Key object describing the authorized public key.
    */
-  final case class Authorization(`type`: String = ResponseTypeEnum.authorization.toString,
-                                 recoveryToken: Option[String] = None, identifier: Option[String] = None, jwk: Option[JWK] = None) extends ResponseType
+  final case class Authorization(`type`: String = authorization, recoveryToken: Option[String] = None,
+                                 identifier: Option[String] = None, jwk: Option[JWK] = None) extends ResponseType
 
   /**
    * a certificate issuance response message
@@ -491,43 +427,25 @@ package object AcmeProtocol {
    *              a TLS handshake {{RFC5246}}.
    * @param refresh An HTTP or HTTPS URI from which updated versions of this certificate can be fetched.
    */
-  final case class CertificateIssuance(`type`: String = ResponseTypeEnum.certificate.toString,
-                                       certificate: String, chain: Option[List[String]] = None,
-                                       refresh: Option[String] = None) extends ResponseType
+  final case class CertificateIssuance(`type`: String = certificate, certificate: String,
+                                       chain: Option[List[String]] = None, refresh: Option[String] = None) extends ResponseType
 
   /**
    * a revocation of certificate response message issued by the CA server, this represents a successful revocation
    * @param type type of the response, "revocation"
    */
-  final case class Revocation(`type`: String = ResponseTypeEnum.revocation.toString) extends ResponseType
+  final case class Revocation(`type`: String = revocation) extends ResponseType
 
   //----------------------------------------------------------------------------
   //-----------------Requests---------------------------------------------------
   //----------------------------------------------------------------------------
 
   /**
-   * enumeration of acme request message types:
-   * challengeRequest, authorizationRequest, certificateRequest, revocationRequest
+   * acme request message types: challengeRequest, authorizationRequest, certificateRequest, revocationRequest
    */
-  object RequestTypeEnum extends Enumeration {
-    type RequestTypeEnum = Value
-    val challengeRequest, authorizationRequest, certificateRequest, revocationRequest = Value
-
-    implicit def requestTypeEnumToString(value: RequestTypeEnum.Value): String = value.toString
-
-    /**
-     * safely returns the enumeration value as an option given a string representation of the enumeration name
-     * @param s the input string representing the enumeration type
-     * @return the enumeration value
-     */
-    def withNameString(s: String): Option[RequestTypeEnum] = {
-      try {
-        Option(RequestTypeEnum.withName(s))
-      } catch {
-        case e: NoSuchElementException => None
-      }
-    }
-  }
+  val challengeRequest = "challengeRequest"; val authorizationRequest = "authorizationRequest"
+  val certificateRequest ="certificateRequest"; val revocationRequest = "revocationRequest"
+  val requestTypeSet = Set(challengeRequest, authorizationRequest, certificateRequest, revocationRequest)
 
   /**
    * an acme request message type
@@ -549,7 +467,7 @@ package object AcmeProtocol {
    *                   (If other types of identifier are supported, then an extension to this protocol
    *                   will need to add a field to distinguish types of identifier.)
    */
-  final case class ChallengeRequest(`type`: String = RequestTypeEnum.challengeRequest.toString, identifier: String) extends RequestType
+  final case class ChallengeRequest(`type`: String = challengeRequest, identifier: String) extends RequestType
 
   /**
    * A certificate signed request (CSR)
@@ -561,8 +479,7 @@ package object AcmeProtocol {
    * @param signature A signature object reflecting a signature by an authorized key pair over the CSR.
    *
    */
-  final case class CertificateRequest(`type`: String = RequestTypeEnum.certificateRequest.toString,
-                                      csr: String, signature: AcmeSignature) extends RequestType
+  final case class CertificateRequest(`type`: String = certificateRequest, csr: String, signature: AcmeSignature) extends RequestType
 
   /**
    * request that a signed certificate be revoked
@@ -570,8 +487,7 @@ package object AcmeProtocol {
    * @param certificate The certificate to be revoked.
    * @param signature A signature object reflecting a signature by an authorized key pair over the certificate.
    */
-  final case class RevocationRequest(`type`: String = RequestTypeEnum.revocationRequest.toString,
-                                     certificate: String, signature: AcmeSignature) extends RequestType
+  final case class RevocationRequest(`type`: String = revocationRequest, certificate: String, signature: AcmeSignature) extends RequestType
 
   /**
    * an authorization request
@@ -584,11 +500,8 @@ package object AcmeProtocol {
    *                  in the response array is set to null. Otherwise, it is set to a value defined by the challenge type.
    * @param contact An array of URIs that the server can use to contact the client for issues related to this authorization.
    */
-  final case class AuthorizationRequest(`type`: String = RequestTypeEnum.authorizationRequest.toString,
-                                        sessionID: String,
-                                        nonce: String,
-                                        signature: AcmeSignature,
-                                        responses: List[ResponseType] = List.empty,
+  final case class AuthorizationRequest(`type`: String = authorizationRequest, sessionID: String, nonce: String,
+                                        signature: AcmeSignature, responses: List[ResponseType] = List.empty,
                                         contact: Option[List[Contact]] = None) extends RequestType
 
 }
