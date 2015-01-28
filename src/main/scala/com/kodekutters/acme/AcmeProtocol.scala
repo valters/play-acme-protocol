@@ -240,17 +240,18 @@ package object AcmeProtocol {
     implicit val challengeTypeReads = new Reads[ChallengeType] {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
-          case Some(typeName) => {
-            ChallengeTypeEnum.withName(typeName) match {
-              case ChallengeTypeEnum.simpleHttps => Json.format[ChallengeSimpleHTTPS].reads(json)
-              case ChallengeTypeEnum.dvsni => Json.format[ChallengeDVSNI].reads(json)
-              case ChallengeTypeEnum.dns => Json.format[ChallengeDNS].reads(json)
-              case ChallengeTypeEnum.recoveryToken => Json.format[RecoveryToken].reads(json)
-              case ChallengeTypeEnum.recoveryContact => Json.format[ChallengeProofOfPossession].reads(json)
-              case ChallengeTypeEnum.proofOfPossession => Json.format[ChallengeRecoveryContact].reads(json)
-            }
-          }
           case None => JsError("could not read jsValue: \"" + json + "\" into a ChallengeType")
+          case Some(typeString) =>
+            if (ChallengeTypeEnum.withNameString(typeString).isDefined) {
+              ChallengeTypeEnum.withName(typeString) match {
+                case ChallengeTypeEnum.simpleHttps => Json.format[ChallengeSimpleHTTPS].reads(json)
+                case ChallengeTypeEnum.dvsni => Json.format[ChallengeDVSNI].reads(json)
+                case ChallengeTypeEnum.dns => Json.format[ChallengeDNS].reads(json)
+                case ChallengeTypeEnum.recoveryToken => Json.format[RecoveryToken].reads(json)
+                case ChallengeTypeEnum.recoveryContact => Json.format[ChallengeProofOfPossession].reads(json)
+                case ChallengeTypeEnum.proofOfPossession => Json.format[ChallengeRecoveryContact].reads(json)
+              }
+            } else JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
         }
       }
     }
@@ -357,24 +358,30 @@ package object AcmeProtocol {
 
     implicit val responseTypeReads = new Reads[ResponseType] {
       def reads(json: JsValue) = {
-        (json \ "type").as[String] match {
-          case x if ChallengeTypeEnum.simpleHttps.toString == x => Json.format[SimpleHTTPSResponse].reads(json)
-          case x if ChallengeTypeEnum.dvsni.toString == x => dvsniReads(json)
-          case x if ChallengeTypeEnum.dns.toString == x => Json.format[ChallengeDNSResponse].reads(json)
-          case x if ChallengeTypeEnum.recoveryToken.toString == x => Json.format[RecoveryTokenResponse].reads(json)
-          case x if ChallengeTypeEnum.proofOfPossession.toString == x => Json.format[ChallengeProofOfPossessionResponse].reads(json)
-          case x if ChallengeTypeEnum.recoveryContact.toString == x => Json.format[RecoveryContactResponse].reads(json)
-          case x if ResponseTypeEnum.challenge.toString == x => Json.format[Challenge].reads(json)
-          case x if ResponseTypeEnum.authorization.toString == x => Json.format[Authorization].reads(json)
-          case x if ResponseTypeEnum.certificate.toString == x => Json.format[CertificateIssuance].reads(json)
-          case x if ResponseTypeEnum.revocation.toString == x => Json.format[Revocation].reads(json)
-          case x => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
+        (json \ "type").asOpt[String] match {
+          case None => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
+          case Some(typeString) =>
+            if (ChallengeTypeEnum.withNameString(typeString).isDefined || ResponseTypeEnum.withNameString(typeString).isDefined) {
+              typeString match {
+                case x if ChallengeTypeEnum.simpleHttps.toString == x => Json.format[SimpleHTTPSResponse].reads(json)
+                case x if ChallengeTypeEnum.dvsni.toString == x => dvsniReads(json)
+                case x if ChallengeTypeEnum.dns.toString == x => Json.format[ChallengeDNSResponse].reads(json)
+                case x if ChallengeTypeEnum.recoveryToken.toString == x => Json.format[RecoveryTokenResponse].reads(json)
+                case x if ChallengeTypeEnum.proofOfPossession.toString == x => Json.format[ChallengeProofOfPossessionResponse].reads(json)
+                case x if ChallengeTypeEnum.recoveryContact.toString == x => Json.format[RecoveryContactResponse].reads(json)
+                case x if ResponseTypeEnum.challenge.toString == x => Json.format[Challenge].reads(json)
+                case x if ResponseTypeEnum.authorization.toString == x => Json.format[Authorization].reads(json)
+                case x if ResponseTypeEnum.certificate.toString == x => Json.format[CertificateIssuance].reads(json)
+                case x if ResponseTypeEnum.revocation.toString == x => Json.format[Revocation].reads(json)
+                case x => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
+              }
+            } else JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
         }
       }
     }
 
     implicit val responseTypeWrites = new Writes[ResponseType] {
-      def writes(c: ResponseType) = c match {
+      def writes(response: ResponseType) = response match {
         case x: SimpleHTTPSResponse => Json.format[SimpleHTTPSResponse].writes(x)
         case x: DVSNIResponceS => Json.format[DVSNIResponceS].writes(x)
         case x: DVSNIResponceR => Json.format[DVSNIResponceR].writes(x)
