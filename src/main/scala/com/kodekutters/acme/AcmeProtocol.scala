@@ -165,7 +165,7 @@ package object AcmeProtocol {
   //----------------------------------------------------------------------------
 
   /**
-   * enumeration of acme challenge types: simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession.
+   * acme challenge types: simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession.
    * Note: values in challengeTypeSet can also be used in responses as well as challenges
    */
   val simpleHttps = "simpleHttps"; val dvsni  = "dvsni"; val dns = "dns"; val recoveryToken = "recoveryToken"
@@ -195,7 +195,7 @@ package object AcmeProtocol {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
           case None => JsError("could not read jsValue: \"" + json + "\" into a ChallengeType")
-          case Some(typeString) => typeString match {
+          case Some(challenge) => challenge match {
             case `simpleHttps` => Json.format[ChallengeSimpleHTTPS].reads(json)
             case `dvsni` => Json.format[ChallengeDVSNI].reads(json)
             case `dns` => Json.format[ChallengeDNS].reads(json)
@@ -269,6 +269,7 @@ package object AcmeProtocol {
 
   /**
    * acme response message types: challenge, authorization, revocation, certificate
+   * Note: values in responseTypeSet can also be used in responses to challenges as well as ResponseType messages
    */
   val challenge = "challenge"; val authorization = "authorization"
   val revocation = "revocation"; val certificate = "certificate"
@@ -276,12 +277,17 @@ package object AcmeProtocol {
 
   /**
    * an acme response message type
-   * Note: values in responseTypeSet can also be used in responses to challenges as well as ResponseType messages
    */
   sealed trait ResponseType
 
   object ResponseType {
 
+    /**
+     * reads for dvsni ResponseTypes as there are 2 dvsni responses,
+     * return the appropriate one
+     * @param js the json value to read
+     * @return a JsResult or an Error
+     */
     private def dvsniReads(js: JsValue) = {
       if ((js \ "s").asOpt[String].isDefined) Json.format[DVSNIResponceS].reads(js)
       else
@@ -294,8 +300,8 @@ package object AcmeProtocol {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
           case None => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
-          case Some(typeString) =>
-            typeString match {
+          case Some(response) =>
+            response match {
                 case `simpleHttps` => Json.format[SimpleHTTPSResponse].reads(json)
                 case `dvsni` => dvsniReads(json)
                 case `dns` => Json.format[ChallengeDNSResponse].reads(json)

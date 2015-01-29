@@ -29,7 +29,7 @@ object Example1 {
 
     // validate the json message and turn it into a scala AuthorizationRequest
     jsVal.validate[AuthorizationRequest] match {
-      case s: JsSuccess[AuthorizationRequest] => println("\nvalidated AuthorizationRequest: " + s.get)
+      case request: JsSuccess[AuthorizationRequest] => println("\nvalidated AuthorizationRequest: " + request.get)
       case e: JsError => println("\n Error: " + JsError.toFlatJson(e).toString())
     }
 
