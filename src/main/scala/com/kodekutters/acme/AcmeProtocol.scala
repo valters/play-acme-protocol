@@ -304,9 +304,9 @@ package object AcmeProtocol {
             response match {
                 case `simpleHttps` => Json.format[SimpleHTTPSResponse].reads(json)
                 case `dvsni` => dvsniReads(json)
-                case `dns` => Json.format[ChallengeDNSResponse].reads(json)
+                case `dns` => Json.format[DNSResponse].reads(json)
                 case `recoveryToken` => Json.format[RecoveryTokenResponse].reads(json)
-                case `proofOfPossession` => Json.format[ChallengeProofOfPossessionResponse].reads(json)
+                case `proofOfPossession` => Json.format[ProofOfPossessionResponse].reads(json)
                 case `recoveryContact` => Json.format[RecoveryContactResponse].reads(json)
                 case `challenge` => Json.format[Challenge].reads(json)
                 case `authorization` => Json.format[Authorization].reads(json)
@@ -323,9 +323,9 @@ package object AcmeProtocol {
         case x: SimpleHTTPSResponse => Json.format[SimpleHTTPSResponse].writes(x)
         case x: DVSNIResponceS => Json.format[DVSNIResponceS].writes(x)
         case x: DVSNIResponceR => Json.format[DVSNIResponceR].writes(x)
-        case x: ChallengeDNSResponse => Json.format[ChallengeDNSResponse].writes(x)
+        case x: DNSResponse => Json.format[DNSResponse].writes(x)
         case x: RecoveryTokenResponse => Json.format[RecoveryTokenResponse].writes(x)
-        case x: ChallengeProofOfPossessionResponse => Json.format[ChallengeProofOfPossessionResponse].writes(x)
+        case x: ProofOfPossessionResponse => Json.format[ProofOfPossessionResponse].writes(x)
         case x: RecoveryContactResponse => Json.format[RecoveryContactResponse].writes(x)
         case x: Challenge => Json.format[Challenge].writes(x)
         case x: Authorization => Json.format[Authorization].writes(x)
@@ -367,7 +367,7 @@ package object AcmeProtocol {
    * a response to a dns challenge
    * @param type type of the response, "dns"
    */
-  final case class ChallengeDNSResponse(`type`: String = dns) extends ResponseType
+  final case class DNSResponse(`type`: String = dns) extends ResponseType
 
   /**
    * a recovery token response
@@ -382,7 +382,7 @@ package object AcmeProtocol {
    * @param nonce A random 16-byte octet string, base64-encoded
    * @param signature The ACME signature computed over the signature-input using the server-specified algorithm
    */
-  final case class ChallengeProofOfPossessionResponse(`type`: String = proofOfPossession, nonce: String,
+  final case class ProofOfPossessionResponse(`type`: String = proofOfPossession, nonce: String,
                                                       signature: AcmeSignature) extends ResponseType
 
   /**
