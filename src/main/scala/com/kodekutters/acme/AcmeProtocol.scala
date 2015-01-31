@@ -166,7 +166,7 @@ package object AcmeProtocol {
 
   /**
    * acme challenge types: simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession.
-   * Note: values in challengeTypeSet can also be used in responses as well as challenges
+   * Note: these values can also be used in responses as well as challenges
    */
   val simpleHttps = "simpleHttps"; val dvsni  = "dvsni"; val dns = "dns"; val recoveryToken = "recoveryToken"
   val recoveryContact = "recoveryContact"; val proofOfPossession = "proofOfPossession"
@@ -180,7 +180,7 @@ package object AcmeProtocol {
   object ChallengeType {
 
     implicit val challengeTypeWrites = new Writes[ChallengeType] {
-      def writes(c: ChallengeType) = c match {
+      def writes(chalengeType: ChallengeType) = chalengeType match {
         case x: ChallengeSimpleHTTPS => Json.format[ChallengeSimpleHTTPS].writes(x)
         case x: ChallengeDVSNI => Json.format[ChallengeDVSNI].writes(x)
         case x: ChallengeDNS => Json.format[ChallengeDNS].writes(x)
@@ -195,7 +195,7 @@ package object AcmeProtocol {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
           case None => JsError("could not read jsValue: \"" + json + "\" into a ChallengeType")
-          case Some(chalenge) => chalenge match {
+          case Some(chalengeType) => chalengeType match {
             case `simpleHttps` => Json.format[ChallengeSimpleHTTPS].reads(json)
             case `dvsni` => Json.format[ChallengeDVSNI].reads(json)
             case `dns` => Json.format[ChallengeDNS].reads(json)
@@ -269,7 +269,7 @@ package object AcmeProtocol {
 
   /**
    * acme response message types: challenge, authorization, revocation, certificate
-   * Note: values in responseTypeSet can also be used in responses to challenges as well as ResponseType messages
+   * Note: these values can also be used in response to challenges as well as ResponseType messages
    */
   val challenge = "challenge"; val authorization = "authorization"
   val revocation = "revocation"; val certificate = "certificate"
@@ -300,8 +300,8 @@ package object AcmeProtocol {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
           case None => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
-          case Some(response) =>
-            response match {
+          case Some(responseType) =>
+            responseType match {
                 case `simpleHttps` => Json.format[SimpleHTTPSResponse].reads(json)
                 case `dvsni` => dvsniReads(json)
                 case `dns` => Json.format[DNSResponse].reads(json)
@@ -319,7 +319,7 @@ package object AcmeProtocol {
     }
 
     implicit val responseTypeWrites = new Writes[ResponseType] {
-      def writes(response: ResponseType) = response match {
+      def writes(responseType: ResponseType) = responseType match {
         case x: SimpleHTTPSResponse => Json.format[SimpleHTTPSResponse].writes(x)
         case x: DVSNIResponceS => Json.format[DVSNIResponceS].writes(x)
         case x: DVSNIResponceR => Json.format[DVSNIResponceR].writes(x)
