@@ -180,7 +180,7 @@ package object AcmeProtocol {
   object ChallengeType {
 
     implicit val challengeTypeWrites = new Writes[ChallengeType] {
-      def writes(chalengeType: ChallengeType) = chalengeType match {
+      def writes(msgType: ChallengeType) = msgType match {
         case x: ChallengeSimpleHTTPS => Json.format[ChallengeSimpleHTTPS].writes(x)
         case x: ChallengeDVSNI => Json.format[ChallengeDVSNI].writes(x)
         case x: ChallengeDNS => Json.format[ChallengeDNS].writes(x)
@@ -195,7 +195,7 @@ package object AcmeProtocol {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
           case None => JsError("could not read jsValue: \"" + json + "\" into a ChallengeType")
-          case Some(chalengeType) => chalengeType match {
+          case Some(msgType) => msgType match {
             case `simpleHttps` => Json.format[ChallengeSimpleHTTPS].reads(json)
             case `dvsni` => Json.format[ChallengeDVSNI].reads(json)
             case `dns` => Json.format[ChallengeDNS].reads(json)
@@ -300,8 +300,8 @@ package object AcmeProtocol {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
           case None => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
-          case Some(responseType) =>
-            responseType match {
+          case Some(msgType) =>
+            msgType match {
                 case `simpleHttps` => Json.format[SimpleHTTPSResponse].reads(json)
                 case `dvsni` => dvsniReads(json)
                 case `dns` => Json.format[DNSResponse].reads(json)
@@ -319,7 +319,7 @@ package object AcmeProtocol {
     }
 
     implicit val responseTypeWrites = new Writes[ResponseType] {
-      def writes(responseType: ResponseType) = responseType match {
+      def writes(msgType: ResponseType) = msgType match {
         case x: SimpleHTTPSResponse => Json.format[SimpleHTTPSResponse].writes(x)
         case x: DVSNIResponceS => Json.format[DVSNIResponceS].writes(x)
         case x: DVSNIResponceR => Json.format[DVSNIResponceR].writes(x)
@@ -472,7 +472,7 @@ package object AcmeProtocol {
   final case class ChallengeRequest(`type`: String = challengeRequest, identifier: String) extends RequestType
 
   /**
-   * A certificate signed request (CSR)
+   * A certificate signing request (CSR)
    *
    * @param type type of the request, "certificateRequest"
    * @param csr A CSR encoding the parameters for the certificate being requested.
