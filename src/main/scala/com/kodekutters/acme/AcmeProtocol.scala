@@ -25,6 +25,7 @@ package object AcmeProtocol {
 
   /**
    * determine if the input string is a valid acme message of any 'type'.
+   *
    * @param t the input string to test
    * @return true if the input represents a valid acme type, else false
    */
@@ -34,6 +35,7 @@ package object AcmeProtocol {
 
   /**
    * determine if the input json message is a valid acme message based on testing its "type" field
+   *
    * @param msg the input json message to test
    * @return true if the input json message represents a valid acme message type, else false
    */
@@ -49,6 +51,7 @@ package object AcmeProtocol {
    * be validated by ACME. The protocol allows for different
    * types of identifier to be supported (DNS names, IP
    * addresses, etc.), but currently only supports domain names.
+   *
    * @param type The identifier type, default dns
    * @param value The identifier itself, default "dns"
    */
@@ -82,6 +85,7 @@ package object AcmeProtocol {
 
   /**
    * a contact  .... todo ... not specified in acme yet
+   *
    * @param name
    * @param uri
    * @param email
@@ -131,6 +135,7 @@ package object AcmeProtocol {
 
   /**
    * an acme error message
+   *
    * @param type type of the acme message, "error"
    * @param error error description, a token from the set of error types, indicating what type of error occurred
    * @param message A human-readable string describing the error
@@ -144,6 +149,7 @@ package object AcmeProtocol {
 
   /**
    * an acme defer message
+   *
    * @param type type of the acme message, "defer"
    * @param token An opaque value that the client uses to check on the status of the request (using a statusRequest message)
    * @param interval The amount of time, in seconds, that the client should wait before checking on the status of the request.
@@ -155,6 +161,7 @@ package object AcmeProtocol {
 
   /**
    * an acme statusRequest message
+   *
    * @param type type of the acme message, "statusRequest"
    * @param token An opaque value that was provided in a defer message
    */
@@ -179,7 +186,7 @@ package object AcmeProtocol {
 
   object ChallengeType {
 
-    implicit val challengeTypeWrites = new Writes[ChallengeType] {
+    val challengeTypeWrites = new Writes[ChallengeType] {
       def writes(msgType: ChallengeType) = msgType match {
         case x: ChallengeSimpleHTTPS => Json.format[ChallengeSimpleHTTPS].writes(x)
         case x: ChallengeDVSNI => Json.format[ChallengeDVSNI].writes(x)
@@ -191,7 +198,7 @@ package object AcmeProtocol {
       }
     }
 
-    implicit val challengeTypeReads = new Reads[ChallengeType] {
+    val challengeTypeReads = new Reads[ChallengeType] {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
           case None => JsError("could not read jsValue: \"" + json + "\" into a ChallengeType")
@@ -214,6 +221,7 @@ package object AcmeProtocol {
 
   /**
    * Simple HTTPS validation challenge
+   *
    * @param type type of the challenge, "simpleHttps"
    * @param token The value to be provisioned in the file. This value MUST have at least 128 bits of entropy,
    *              in order to prevent an attacker from guessing it. It MUST NOT contain any non-ASCII characters.
@@ -222,6 +230,7 @@ package object AcmeProtocol {
 
   /**
    * a dvsni challenge
+   *
    * @param type type of the challenge, "dvsni"
    */
   final case class ChallengeDVSNI(`type`: String = dvsni) extends ChallengeType
@@ -237,12 +246,14 @@ package object AcmeProtocol {
 
   /**
    * a recovery token challenge
+   *
    * @param type type of the challenge, "recoveryToken"
    */
   final case class RecoveryToken(`type`: String = recoveryToken) extends ChallengeType
 
   /**
    * a proofOfPossession challenge
+   *
    * @param type type of the challenge, "proofOfPossession"
    * @param alg A token indicating the cryptographic algorithm that should be used by the client to
    *            compute the signature {{I-D.ietf-jose-json-web-algorithms}}.
@@ -255,6 +266,7 @@ package object AcmeProtocol {
 
   /**
    * a recovery contact challenge
+   *
    * @param type type of the challenge, "recoveryContact"
    * @param activationURL A URL the client can visit to cause a recovery message to be sent to client's contact address.
    * @param successURL A URL the client may poll to determine if the user has successfully clicked a link or completed other tasks specified by the recovery message.
@@ -283,8 +295,8 @@ package object AcmeProtocol {
   object ResponseType {
 
     /**
-     * reads for dvsni ResponseTypes as there are 2 dvsni responses,
-     * return the appropriate one
+     * reads for dvsni ResponseTypes as there are 2 dvsni responses, return the appropriate one
+     *
      * @param js the json value to read
      * @return a JsResult or an Error
      */
@@ -296,7 +308,7 @@ package object AcmeProtocol {
         JsError("could not read jsValue: \"" + js + "\" into a dvsni")
     }
 
-    implicit val responseTypeReads = new Reads[ResponseType] {
+    val responseTypeReads = new Reads[ResponseType] {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
           case None => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
@@ -318,7 +330,7 @@ package object AcmeProtocol {
       }
     }
 
-    implicit val responseTypeWrites = new Writes[ResponseType] {
+    val responseTypeWrites = new Writes[ResponseType] {
       def writes(msgType: ResponseType) = msgType match {
         case x: SimpleHTTPSResponse => Json.format[SimpleHTTPSResponse].writes(x)
         case x: DVSNIResponceS => Json.format[DVSNIResponceS].writes(x)
@@ -341,6 +353,7 @@ package object AcmeProtocol {
 
   /**
    * response by the client to the simple HTTPS challenge request
+   *
    * @param type type of the response, "simpleHttps"
    * @param path The string to be appended to the standard prefix ".well-known/acme-challenge" in order to
    *             form the path at which the nonce resource is provisioned. The result of concatenating
@@ -358,6 +371,7 @@ package object AcmeProtocol {
 
   /**
    * random value (client) response to a dvsni challenge request
+   *
    * @param type type of the response, "dvsni"
    * @param s A random 32-byte secret octet string, base64-encoded
    */
@@ -371,6 +385,7 @@ package object AcmeProtocol {
 
   /**
    * a recovery token response
+   *
    * @param type type of the challenge, "recoveryToken
    * @param token The recovery token provided by the server.
    */
@@ -387,6 +402,7 @@ package object AcmeProtocol {
 
   /**
    * a challenge response
+   *
    * @param type type of the response, "challenge"
    * @param sessionID An opaque string that allows the server to correlate transactions related to this challenge request.
    * @param nonce A base64-encoded octet string that the client is expected to sign with the private key of the key pair being authorized.
@@ -402,6 +418,7 @@ package object AcmeProtocol {
 
   /**
    * a recovery contact response
+   *
    * @param type type of the response, "recoveryContact"
    * @param token If the user transferred a token from a contact email or call into the client software, the client sends it here.
    */
@@ -409,6 +426,7 @@ package object AcmeProtocol {
 
   /**
    * an authorization response message
+   *
    * @param type type of the response, "authorization"
    * @param recoveryToken An arbitrary server-generated string. If the server provides a recovery token, it MUST
    *                      generate a unique value for every authorization transaction, and this value MUST NOT
@@ -421,6 +439,7 @@ package object AcmeProtocol {
 
   /**
    * a certificate issuance response message
+   *
    * @param type type of the response, "certificate"
    * @param certificate The issued certificate, as a base64-encoded DER certificate.
    * @param chain A chain of CA certificates (AcmeCertificate) which are parents of the issued certificate.
@@ -434,6 +453,7 @@ package object AcmeProtocol {
 
   /**
    * a revocation of certificate response message issued by the CA server, this represents a successful revocation
+   *
    * @param type type of the response, "revocation"
    */
   final case class Revocation(`type`: String = revocation) extends ResponseType
@@ -463,6 +483,7 @@ package object AcmeProtocol {
 
   /**
    * a challengeRequest message
+   *
    * @param type type of the request, "challengeRequest"
    * @param identifier The identifier for which authorization is being sought.
    *                   For implementations of this specification, this identifier MUST be a domain name.
@@ -493,6 +514,7 @@ package object AcmeProtocol {
 
   /**
    * an authorization request
+   *
    * @param type type of the request, "authorizationRequest"
    * @param sessionID The session ID provided by the server in the challenge message (to allow the server to correlate the two transactions).
    * @param nonce The nonce provided by the server in the challenge message.
