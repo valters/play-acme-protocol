@@ -58,12 +58,8 @@ object Example1 {
     println("\njson authReq: " + Json.toJson(authReq))
 
 
-    // some challenges
-    val simpleHTTPS = new ChallengeSimpleHTTPS(token = newToken)
-    val dns = new ChallengeDNS(token = newToken)
-    val recoveryToken = new RecoveryToken()
     // the list of challenges
-    val challengeList = List(simpleHTTPS, dns, recoveryToken)
+    val challengeList = List(new ChallengeSimpleHTTPS(token = newToken), new ChallengeDNS(token = newToken), new RecoveryToken())
 
     // the challenges combinations
     val combins = Array.ofDim[Int](2, 2)
@@ -80,10 +76,10 @@ object Example1 {
     println("\ntheChallenge json: " + Json.toJson(theChallenge))
 
 
-    // a response
+    // a recoveryToken response
     val jsRecov = Json.parse( """{"type": "recoveryToken", "token": "a-token"}""")
-    val recovRequest = Json.fromJson[ResponseType](jsRecov).asOpt
-    println("\nrecovRequest: " + recovRequest)
+    val recov = Json.fromJson[ResponseType](jsRecov).asOpt
+    println("\nrecov: " + recov)
     jsRecov.validate[ResponseType] match {
       case s: JsSuccess[ResponseType] => println("\nvalidated ResponseType: " + s.get + "\n")
       case e: JsError => println("\nError: " + JsError.toFlatJson(e).toString())

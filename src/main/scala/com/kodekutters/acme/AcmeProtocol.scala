@@ -237,6 +237,7 @@ package object AcmeProtocol {
 
   /**
    * a dns challenge
+   *
    * @param type type of the challenge, "dns"
    * @param token An ASCII string that is to be provisioned in the TXT record.
    *              This string SHOULD be randomly generated, with at least 128 bits of entropy
@@ -363,6 +364,7 @@ package object AcmeProtocol {
 
   /**
    * random value and nonce (server) response to a dvsni challenge request
+   *
    * @param type type of the response, "dvsni"
    * @param r A random 32-byte octet, base64-encoded
    * @param nonce A random 16-byte octet string, hex-encoded (so that it can be used as a DNS label)
@@ -379,6 +381,7 @@ package object AcmeProtocol {
 
   /**
    * a response to a dns challenge
+   *
    * @param type type of the response, "dns"
    */
   final case class DNSResponse(`type`: String = dns) extends ResponseType
@@ -393,6 +396,7 @@ package object AcmeProtocol {
 
   /**
    * a response to a proofOfPossession challenge
+   *
    * @param type type of the response, "proofOfPossession"
    * @param nonce A random 16-byte octet string, base64-encoded
    * @param signature The ACME signature computed over the signature-input using the server-specified algorithm
@@ -506,6 +510,7 @@ package object AcmeProtocol {
 
   /**
    * request that a signed certificate be revoked
+   *
    * @param type type of the request, "revocationRequest"
    * @param certificate The certificate to be revoked.
    * @param signature A signature object reflecting a signature by an authorized key pair over the certificate.
