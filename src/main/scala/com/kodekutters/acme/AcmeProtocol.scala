@@ -130,9 +130,32 @@ package object AcmeProtocol {
   }
 
   object MessageType {
-    implicit val fmt1 = Json.format[AcmeErrorMessage]
-    implicit val fmt2 = Json.format[AcmeDefer]
-    implicit val fmt3 = Json.format[AcmeStatusRequest]
+
+    val messageTypeReads = new Reads[MessageType] {
+      def reads(json: JsValue) = {
+        (json \ "type").asOpt[String] match {
+          case None => JsError("could not read jsValue: \"" + json + "\" into a MessageType")
+          case Some(msgType) =>
+            msgType match {
+              case `error` => Json.format[AcmeErrorMessage].reads(json)
+              case `defer` => Json.format[AcmeDefer].reads(json)
+              case `statusRequest` => Json.format[AcmeStatusRequest].reads(json)
+              case _ => JsError("could not read jsValue: \"" + json + "\" into a MessageType")
+            }
+        }
+      }
+    }
+
+    val messageTypeWrites = new Writes[MessageType] {
+      def writes(msgType: MessageType) = msgType match {
+        case x: AcmeErrorMessage => Json.format[AcmeErrorMessage].writes(x)
+        case x: AcmeDefer => Json.format[AcmeDefer].writes(x)
+        case x: AcmeStatusRequest => Json.format[AcmeStatusRequest].writes(x)
+        case _ => JsNull
+      }
+    }
+
+    implicit val fmt: Format[MessageType] = Format(messageTypeReads, messageTypeWrites)
   }
 
   /**
@@ -211,8 +234,8 @@ package object AcmeProtocol {
             case `dvsni` => Json.format[ChallengeDVSNI].reads(json)
             case `dns` => Json.format[ChallengeDNS].reads(json)
             case `recoveryToken` => Json.format[RecoveryToken].reads(json)
-            case `recoveryContact` => Json.format[ChallengeProofOfPossession].reads(json)
             case `proofOfPossession` => Json.format[ChallengeRecoveryContact].reads(json)
+            case `recoveryContact` => Json.format[ChallengeProofOfPossession].reads(json)
             case _ => JsError("could not read jsValue: \"" + json + "\" into a ChallengeType")
           }
         }
@@ -485,10 +508,34 @@ package object AcmeProtocol {
   }
 
   object RequestType {
-    implicit val fmt1 = Json.format[ChallengeRequest]
-    implicit val fmt2 = Json.format[AuthorizationRequest]
-    implicit val fmt3 = Json.format[CertificateRequest]
-    implicit val fmt4 = Json.format[RevocationRequest]
+
+    val requestTypeReads = new Reads[RequestType] {
+      def reads(json: JsValue) = {
+        (json \ "type").asOpt[String] match {
+          case None => JsError("could not read jsValue: \"" + json + "\" into a RequestType")
+          case Some(msgType) =>
+            msgType match {
+              case `challengeRequest` => Json.format[ChallengeRequest].reads(json)
+              case `certificateRequest` => Json.format[CertificateRequest].reads(json)
+              case `revocationRequest` => Json.format[RevocationRequest].reads(json)
+              case `authorizationRequest` => Json.format[AuthorizationRequest].reads(json)
+              case _ => JsError("could not read jsValue: \"" + json + "\" into a RequestType")
+            }
+        }
+      }
+    }
+
+    val requestTypeWrites = new Writes[RequestType] {
+      def writes(msgType: RequestType) = msgType match {
+        case x: ChallengeRequest => Json.format[ChallengeRequest].writes(x)
+        case x: CertificateRequest => Json.format[CertificateRequest].writes(x)
+        case x: RevocationRequest => Json.format[RevocationRequest].writes(x)
+        case x: AuthorizationRequest => Json.format[AuthorizationRequest].writes(x)
+        case _ => JsNull
+      }
+    }
+
+    implicit val fmt: Format[RequestType] = Format(requestTypeReads, requestTypeWrites)
   }
 
   /**

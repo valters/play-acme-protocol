@@ -24,12 +24,12 @@ object Example1 {
         }""".stripMargin)
 
     // the scala AuthorizationRequest from the json
-    val theRequest = Json.fromJson[AuthorizationRequest](jsVal).asOpt
+    val theRequest = Json.fromJson[RequestType](jsVal).asOpt
     println("theRequest: " + theRequest)
 
     // validate the json message and turn it into a scala AuthorizationRequest
-    jsVal.validate[AuthorizationRequest] match {
-      case request: JsSuccess[AuthorizationRequest] => println("\nvalidated AuthorizationRequest: " + request.get)
+    jsVal.validate[RequestType] match {
+      case request: JsSuccess[RequestType] => println("\nvalidated AuthorizationRequest: " + request.get)
       case e: JsError => println("\nError: " + JsError.toFlatJson(e).toString())
     }
 
