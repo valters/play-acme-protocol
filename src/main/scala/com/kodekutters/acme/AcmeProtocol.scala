@@ -125,7 +125,9 @@ package object AcmeProtocol {
   /**
    * an acme message type
    */
-  sealed trait MessageType
+  sealed trait MessageType {
+    def `type`: String
+  }
 
   object MessageType {
     implicit val fmt1 = Json.format[AcmeErrorMessage]
@@ -182,7 +184,9 @@ package object AcmeProtocol {
   /**
    * a challenge type message
    */
-  sealed trait ChallengeType
+  sealed trait ChallengeType {
+    def `type`: String
+  }
 
   object ChallengeType {
 
@@ -222,7 +226,7 @@ package object AcmeProtocol {
   /**
    * Simple HTTPS validation challenge
    *
-   * @param type type of the challenge, "simpleHttps"
+   * type of the challenge, "simpleHttps"
    * @param token The value to be provisioned in the file. This value MUST have at least 128 bits of entropy,
    *              in order to prevent an attacker from guessing it. It MUST NOT contain any non-ASCII characters.
    */
@@ -231,50 +235,48 @@ package object AcmeProtocol {
   /**
    * a dvsni challenge
    *
-   * @param type type of the challenge, "dvsni"
+   * type of the challenge, "dvsni"
    */
   final case class ChallengeDVSNI(`type`: String = dvsni) extends ChallengeType
 
   /**
    * a dns challenge
    *
-   * @param type type of the challenge, "dns"
+   * type of the challenge, "dns"
    * @param token An ASCII string that is to be provisioned in the TXT record.
    *              This string SHOULD be randomly generated, with at least 128 bits of entropy
    *              (e.g., a hex-encoded random octet string).
    */
-  final case class ChallengeDNS(`type`: String = dns, token: String) extends ChallengeType
+  final case class ChallengeDNS(`type`: String = dns,token: String) extends ChallengeType
 
   /**
    * a recovery token challenge
    *
-   * @param type type of the challenge, "recoveryToken"
+   * type of the challenge, "recoveryToken"
    */
   final case class RecoveryToken(`type`: String = recoveryToken) extends ChallengeType
 
   /**
    * a proofOfPossession challenge
    *
-   * @param type type of the challenge, "proofOfPossession"
+   * type of the challenge, "proofOfPossession"
    * @param alg A token indicating the cryptographic algorithm that should be used by the client to
    *            compute the signature {{I-D.ietf-jose-json-web-algorithms}}.
    * @param nonce A random 16-byte octet string, base64-encoded
    * @param hints A JSON object that contains various clues for the client about what the requested key is,
    *              such that the client can find it. May include a jwk object.
    */
-  final case class ChallengeProofOfPossession(`type`: String = proofOfPossession, alg: String,
-                                              nonce: String, hints: Hints) extends ChallengeType
+  final case class ChallengeProofOfPossession(`type`: String = proofOfPossession, alg: String, nonce: String, hints: Hints) extends ChallengeType
 
   /**
    * a recovery contact challenge
    *
-   * @param type type of the challenge, "recoveryContact"
+   * type of the challenge, "recoveryContact"
    * @param activationURL A URL the client can visit to cause a recovery message to be sent to client's contact address.
    * @param successURL A URL the client may poll to determine if the user has successfully clicked a link or completed other tasks specified by the recovery message.
    * @param contact A full or partly obfuscated version of the contact URI that the server will use to contact the client.
    */
-  final case class ChallengeRecoveryContact(`type`: String = recoveryContact, activationURL: Option[String] = None,
-                                            successURL: Option[String] = None, contact: Option[Contact] = None) extends ChallengeType
+  final case class ChallengeRecoveryContact(`type`: String = recoveryContact, activationURL: Option[String] = None, successURL: Option[String] = None, contact: Option[Contact] = None) extends ChallengeType
 
   //----------------------------------------------------------------------------
   //-----------------Responses--------------------------------------------------
@@ -291,7 +293,9 @@ package object AcmeProtocol {
   /**
    * an acme response message type
    */
-  sealed trait ResponseType
+  sealed trait ResponseType {
+    def `type`: String
+  }
 
   object ResponseType {
 
@@ -476,7 +480,9 @@ package object AcmeProtocol {
   /**
    * an acme request message type
    */
-  sealed trait RequestType
+  sealed trait RequestType {
+    def `type`: String
+  }
 
   object RequestType {
     implicit val fmt1 = Json.format[ChallengeRequest]

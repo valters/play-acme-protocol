@@ -59,7 +59,7 @@ object Example1 {
 
 
     // the list of challenges
-    val challengeList = List(new ChallengeSimpleHTTPS(token = newToken), new ChallengeDNS(token = newToken), new RecoveryToken())
+    val challengeList = List(new ChallengeSimpleHTTPS(token = newToken), new ChallengeDNS(token = newToken), new RecoveryToken("xxx"))
 
     // the challenges combinations
     val combins = Array.ofDim[Int](2, 2)
