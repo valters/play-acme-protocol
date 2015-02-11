@@ -42,7 +42,7 @@ See also the build.sbt file.
 
 ## Status
 
-Project needs formal testing.
+The AcmeProtocol library needs formal testing.
 
 Using scala 2.11.5 and java 1.8 SDK, with IntelliJ IDEA 14.
 
