@@ -142,7 +142,7 @@ package object AcmeProtocol {
    * an acme message type
    */
   sealed trait MessageType {
-    def `type`: String
+    val `type`: String
   }
 
   object MessageType {
@@ -224,7 +224,7 @@ package object AcmeProtocol {
    * a challenge type message
    */
   sealed trait ChallengeType {
-    def `type`: String
+    val `type`: String
   }
 
   object ChallengeType {
@@ -333,7 +333,7 @@ package object AcmeProtocol {
    * an acme response message type
    */
   sealed trait ResponseType {
-    def `type`: String
+    val `type`: String
   }
 
   object ResponseType {
@@ -520,7 +520,7 @@ package object AcmeProtocol {
    * an acme request message type
    */
   sealed trait RequestType {
-    def `type`: String
+    val `type`: String
   }
 
   object RequestType {
