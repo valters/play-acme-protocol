@@ -42,7 +42,7 @@ See also the build.sbt file.
 
 ## Status
 
-Early stage of the project.
+Project needs formal testing.
 
 Using scala 2.11.5 and java 1.8 SDK, with IntelliJ IDEA 14.
 
