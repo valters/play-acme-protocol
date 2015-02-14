@@ -286,7 +286,7 @@ package object AcmeProtocol {
    *              This string SHOULD be randomly generated, with at least 128 bits of entropy
    *              (e.g., a hex-encoded random octet string).
    */
-  final case class ChallengeDNS(`type`: String = dns,token: String) extends ChallengeType
+  final case class ChallengeDNS(`type`: String = dns, token: String) extends ChallengeType
 
   /**
    * a recovery token challenge
@@ -366,7 +366,7 @@ package object AcmeProtocol {
                 case `recoveryContact` => Json.format[RecoveryContactResponse].reads(json)
                 case `challenge` => Json.format[Challenge].reads(json)
                 case `authorization` => Json.format[Authorization].reads(json)
-                case `certificate` => Json.format[CertificateIssuance].reads(json)
+                case `certificate` => Json.format[Certificate].reads(json)
                 case `revocation` => Json.format[Revocation].reads(json)
                 case _ => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
               }
@@ -385,7 +385,7 @@ package object AcmeProtocol {
         case x: RecoveryContactResponse => Json.format[RecoveryContactResponse].writes(x)
         case x: Challenge => Json.format[Challenge].writes(x)
         case x: Authorization => Json.format[Authorization].writes(x)
-        case x: CertificateIssuance => Json.format[CertificateIssuance].writes(x)
+        case x: Certificate => Json.format[Certificate].writes(x)
         case x: Revocation => Json.format[Revocation].writes(x)
         case _ => JsNull
       }
@@ -472,7 +472,7 @@ package object AcmeProtocol {
   final case class RecoveryContactResponse(`type`: String = recoveryContact, token: Option[String] = None) extends ResponseType
 
   /**
-   * an authorization response message
+   * an authorization response message sent by the server
    *
    * @param type type of the response, "authorization"
    * @param recoveryToken An arbitrary server-generated string. If the server provides a recovery token, it MUST
@@ -495,8 +495,8 @@ package object AcmeProtocol {
    *              a TLS handshake {{RFC5246}}.
    * @param refresh An HTTP or HTTPS URI from which updated versions of this certificate can be fetched.
    */
-  final case class CertificateIssuance(`type`: String = certificate, certificate: String,
-                                       chain: Option[List[String]] = None, refresh: Option[String] = None) extends ResponseType
+  final case class Certificate(`type`: String = certificate, certificate: String,
+                               chain: Option[List[String]] = None, refresh: Option[String] = None) extends ResponseType
 
   /**
    * a revocation of certificate response message issued by the CA server, this represents a successful revocation
