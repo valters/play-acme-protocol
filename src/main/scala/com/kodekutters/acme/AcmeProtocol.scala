@@ -150,13 +150,13 @@ package object AcmeProtocol {
     val messageTypeReads = new Reads[MessageType] {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
-          case None => JsError("could not read jsValue: \"" + json + "\" into a MessageType")
+          case None => JsError("could not read jsValue: " + json + " into a MessageType")
           case Some(msgType) =>
             msgType match {
               case `error` => Json.format[AcmeErrorMessage].reads(json)
               case `defer` => Json.format[AcmeDefer].reads(json)
               case `statusRequest` => Json.format[AcmeStatusRequest].reads(json)
-              case _ => JsError("could not read jsValue: \"" + json + "\" into a MessageType")
+              case _ => JsError("could not read jsValue: " + json + " into a MessageType")
             }
         }
       }
@@ -244,7 +244,7 @@ package object AcmeProtocol {
     val challengeTypeReads = new Reads[ChallengeType] {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
-          case None => JsError("could not read jsValue: \"" + json + "\" into a ChallengeType")
+          case None => JsError("could not read jsValue: " + json + " into a ChallengeType")
           case Some(msgType) => msgType match {
             case `simpleHttps` => Json.format[ChallengeSimpleHTTPS].reads(json)
             case `dvsni` => Json.format[ChallengeDVSNI].reads(json)
@@ -252,7 +252,7 @@ package object AcmeProtocol {
             case `recoveryToken` => Json.format[RecoveryToken].reads(json)
             case `proofOfPossession` => Json.format[ChallengeRecoveryContact].reads(json)
             case `recoveryContact` => Json.format[ChallengeProofOfPossession].reads(json)
-            case _ => JsError("could not read jsValue: \"" + json + "\" into a ChallengeType")
+            case _ => JsError("could not read jsValue: " + json + " into a ChallengeType")
           }
         }
       }
@@ -330,6 +330,30 @@ package object AcmeProtocol {
   val responseTypeSet = Set(challenge, authorization, revocation, certificate)
 
   /**
+   * random value and nonce (server) response to a dvsni challenge request
+   *
+   * @param type type of the response, "dvsni"
+   * @param r A random 32-byte octet, base64-encoded
+   * @param nonce A random 16-byte octet string, hex-encoded (so that it can be used as a DNS label)
+   */
+  final case class DVSNIResponceR(`type`: String = dvsni, r: String, nonce: String) extends ResponseType
+
+  object DVSNIResponceR {
+    implicit val fmt = Json.format[DVSNIResponceR]
+  }
+  /**
+   * random value (client) response to a dvsni challenge request
+   *
+   * @param type type of the response, "dvsni"
+   * @param s A random 32-byte secret octet string, base64-encoded
+   */
+  final case class DVSNIResponceS(`type`: String = dvsni, s: String) extends ResponseType
+
+  object DVSNIResponceS {
+    implicit val fmt = Json.format[DVSNIResponceS]
+  }
+
+  /**
    * an acme response message type
    */
   sealed trait ResponseType {
@@ -341,21 +365,21 @@ package object AcmeProtocol {
     /**
      * reads for dvsni ResponseTypes as there are 2 dvsni responses, return the appropriate one
      *
-     * @param js the json value to read
+     * @param json the json value to read
      * @return a JsResult or an Error
      */
-    private def dvsniReads(js: JsValue) = {
-      if ((js \ "s").asOpt[String].isDefined) Json.format[DVSNIResponceS].reads(js)
-      else
-      if ((js \ "r").asOpt[String].isDefined) Json.format[DVSNIResponceR].reads(js)
-      else
-        JsError("could not read jsValue: \"" + js + "\" into a dvsni")
+    private def dvsniReads(json: JsValue) = {
+      json match {
+        case x if json.validate[DVSNIResponceR].isSuccess => DVSNIResponceR.fmt.reads(json)
+        case x if json.validate[DVSNIResponceS].isSuccess => DVSNIResponceS.fmt.reads(json)
+        case _ => JsError("could not read jsValue: " + json + " into a dvsni response")
+      }
     }
 
     val responseTypeReads = new Reads[ResponseType] {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
-          case None => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
+          case None => JsError("could not read jsValue: " + json + " into a ResponseType")
           case Some(msgType) =>
             msgType match {
                 case `simpleHttps` => Json.format[SimpleHTTPSResponse].reads(json)
@@ -368,7 +392,7 @@ package object AcmeProtocol {
                 case `authorization` => Json.format[Authorization].reads(json)
                 case `certificate` => Json.format[Certificate].reads(json)
                 case `revocation` => Json.format[Revocation].reads(json)
-                case _ => JsError("could not read jsValue: \"" + json + "\" into a ResponseType")
+                case _ => JsError("could not read jsValue: " + json + " into a ResponseType")
               }
         }
       }
@@ -377,8 +401,8 @@ package object AcmeProtocol {
     val responseTypeWrites = new Writes[ResponseType] {
       def writes(msgType: ResponseType) = msgType match {
         case x: SimpleHTTPSResponse => Json.format[SimpleHTTPSResponse].writes(x)
-        case x: DVSNIResponceS => Json.format[DVSNIResponceS].writes(x)
-        case x: DVSNIResponceR => Json.format[DVSNIResponceR].writes(x)
+        case x: DVSNIResponceS => DVSNIResponceS.fmt.writes(x)
+        case x: DVSNIResponceR => DVSNIResponceR.fmt.writes(x)
         case x: DNSResponse => Json.format[DNSResponse].writes(x)
         case x: RecoveryTokenResponse => Json.format[RecoveryTokenResponse].writes(x)
         case x: ProofOfPossessionResponse => Json.format[ProofOfPossessionResponse].writes(x)
@@ -404,23 +428,6 @@ package object AcmeProtocol {
    *             the prefix with this value MUST match the "path" production in the standard URI format {{RFC3986}}
    */
   final case class SimpleHTTPSResponse(`type`: String = simpleHttps, path: String) extends ResponseType
-
-  /**
-   * random value and nonce (server) response to a dvsni challenge request
-   *
-   * @param type type of the response, "dvsni"
-   * @param r A random 32-byte octet, base64-encoded
-   * @param nonce A random 16-byte octet string, hex-encoded (so that it can be used as a DNS label)
-   */
-  final case class DVSNIResponceR(`type`: String = dvsni, r: String, nonce: String) extends ResponseType
-
-  /**
-   * random value (client) response to a dvsni challenge request
-   *
-   * @param type type of the response, "dvsni"
-   * @param s A random 32-byte secret octet string, base64-encoded
-   */
-  final case class DVSNIResponceS(`type`: String = dvsni, s: String) extends ResponseType
 
   /**
    * a response to a dns challenge
@@ -528,14 +535,14 @@ package object AcmeProtocol {
     val requestTypeReads = new Reads[RequestType] {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
-          case None => JsError("could not read jsValue: \"" + json + "\" into a RequestType")
+          case None => JsError("could not read jsValue: " + json + " into a RequestType")
           case Some(msgType) =>
             msgType match {
               case `challengeRequest` => Json.format[ChallengeRequest].reads(json)
               case `certificateRequest` => Json.format[CertificateRequest].reads(json)
               case `revocationRequest` => Json.format[RevocationRequest].reads(json)
               case `authorizationRequest` => Json.format[AuthorizationRequest].reads(json)
-              case _ => JsError("could not read jsValue: \"" + json + "\" into a RequestType")
+              case _ => JsError("could not read jsValue: " + json + " into a RequestType")
             }
         }
       }
