@@ -118,12 +118,9 @@ package object Util {
    * @return a PEM string of the input X509Certificate
    */
   def toPEM(certificate: X509Certificate): String = {
-    val certBegin = "-----BEGIN CERTIFICATE-----\n"
-    val certEnd = "-----END CERTIFICATE-----"
     val derCert = certificate.getEncoded()
     val pemCertPre = new String(Base64.getEncoder.encode(derCert), "UTF-8")
-    val pemCert = certBegin + pemCertPre + certEnd
-    pemCert
+    "-----BEGIN CERTIFICATE-----\n" + pemCertPre + "-----END CERTIFICATE-----"
   }
 
 }
