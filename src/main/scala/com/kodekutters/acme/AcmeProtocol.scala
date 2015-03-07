@@ -162,13 +162,10 @@ package object AcmeProtocol {
       }
     }
 
-    val messageTypeWrites = new Writes[MessageType] {
-      def writes(msgType: MessageType) = msgType match {
-        case x: AcmeErrorMessage => Json.format[AcmeErrorMessage].writes(x)
-        case x: AcmeDefer => Json.format[AcmeDefer].writes(x)
-        case x: AcmeStatusRequest => Json.format[AcmeStatusRequest].writes(x)
-        case _ => JsNull
-      }
+    val messageTypeWrites = Writes[MessageType] {
+      case x: AcmeErrorMessage => Json.format[AcmeErrorMessage].writes(x)
+      case x: AcmeDefer => Json.format[AcmeDefer].writes(x)
+      case x: AcmeStatusRequest => Json.format[AcmeStatusRequest].writes(x)
     }
 
     implicit val fmt: Format[MessageType] = Format(messageTypeReads, messageTypeWrites)
@@ -229,18 +226,6 @@ package object AcmeProtocol {
 
   object ChallengeType {
 
-    val challengeTypeWrites = new Writes[ChallengeType] {
-      def writes(msgType: ChallengeType) = msgType match {
-        case x: ChallengeSimpleHTTPS => Json.format[ChallengeSimpleHTTPS].writes(x)
-        case x: ChallengeDVSNI => Json.format[ChallengeDVSNI].writes(x)
-        case x: ChallengeDNS => Json.format[ChallengeDNS].writes(x)
-        case x: RecoveryToken => Json.format[RecoveryToken].writes(x)
-        case x: ChallengeProofOfPossession => Json.format[ChallengeProofOfPossession].writes(x)
-        case x: ChallengeRecoveryContact => Json.format[ChallengeRecoveryContact].writes(x)
-        case _ => JsNull
-      }
-    }
-
     val challengeTypeReads = new Reads[ChallengeType] {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
@@ -256,6 +241,15 @@ package object AcmeProtocol {
           }
         }
       }
+    }
+
+    val challengeTypeWrites = Writes[ChallengeType] {
+      case x: ChallengeSimpleHTTPS => Json.format[ChallengeSimpleHTTPS].writes(x)
+      case x: ChallengeDVSNI => Json.format[ChallengeDVSNI].writes(x)
+      case x: ChallengeDNS => Json.format[ChallengeDNS].writes(x)
+      case x: RecoveryToken => Json.format[RecoveryToken].writes(x)
+      case x: ChallengeProofOfPossession => Json.format[ChallengeProofOfPossession].writes(x)
+      case x: ChallengeRecoveryContact => Json.format[ChallengeRecoveryContact].writes(x)
     }
 
     implicit val fmt: Format[ChallengeType] = Format(challengeTypeReads, challengeTypeWrites)
@@ -398,8 +392,7 @@ package object AcmeProtocol {
       }
     }
 
-    val responseTypeWrites = new Writes[ResponseType] {
-      def writes(msgType: ResponseType) = msgType match {
+    val responseTypeWrites = Writes[ResponseType] {
         case x: SimpleHTTPSResponse => Json.format[SimpleHTTPSResponse].writes(x)
         case x: DVSNIResponceS => DVSNIResponceS.fmt.writes(x)
         case x: DVSNIResponceR => DVSNIResponceR.fmt.writes(x)
@@ -411,8 +404,6 @@ package object AcmeProtocol {
         case x: Authorization => Json.format[Authorization].writes(x)
         case x: Certificate => Json.format[Certificate].writes(x)
         case x: Revocation => Json.format[Revocation].writes(x)
-        case _ => JsNull
-      }
     }
 
     implicit val fmt: Format[ResponseType] = Format(responseTypeReads, responseTypeWrites)
@@ -548,14 +539,11 @@ package object AcmeProtocol {
       }
     }
 
-    val requestTypeWrites = new Writes[RequestType] {
-      def writes(msgType: RequestType) = msgType match {
+    val requestTypeWrites = Writes[RequestType] {
         case x: ChallengeRequest => Json.format[ChallengeRequest].writes(x)
         case x: CertificateRequest => Json.format[CertificateRequest].writes(x)
         case x: RevocationRequest => Json.format[RevocationRequest].writes(x)
         case x: AuthorizationRequest => Json.format[AuthorizationRequest].writes(x)
-        case _ => JsNull
-      }
     }
 
     implicit val fmt: Format[RequestType] = Format(requestTypeReads, requestTypeWrites)
