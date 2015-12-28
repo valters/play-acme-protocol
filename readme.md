@@ -1,6 +1,6 @@
 # Automated Certificate Management Environment (ACME) protocol library written in scala.
 
-This protocol library was based on an early draft specification. This is now out of date.
+This protocol library was based on an early draft specification (draft-barnes-acme-00). This is now out of date.
 
 From reference 1, "ACME is a protocol for automating the management of domain-validation certificates,
 based on a simple JSON-over-HTTPS interface."
