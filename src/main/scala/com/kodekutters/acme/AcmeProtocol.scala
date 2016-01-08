@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Ringo Wathelet
+ * Copyright 2016 Ringo Wathelet
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,9 @@
 
 package com.kodekutters.acme
 
+
 import com.nimbusds.jose.jwk.JWK
+import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json._
 
 /**
@@ -24,7 +26,7 @@ import play.api.libs.json._
   *
   * Reference: Let's Encrypt project at: https://letsencrypt.org/
   *
-  * based on draft-barnes-acme-00
+  * based on draft-barnes-acme-04 (8 January 2016)
   *
   * For the ACME protocol specification see:
   * https://github.com/letsencrypt/acme-spec and
@@ -33,38 +35,15 @@ import play.api.libs.json._
   */
 package object AcmeProtocol {
 
-  //----------------------------------------------------------------------------
-  //-----------------supporting elements----------------------------------------
-  //----------------------------------------------------------------------------
-
   // implicits for reading and writing json JWK objects ..... used in Authorization and Hints
   implicit val jwkWrites = new Writes[JWK] {
     def writes(jwk: JWK) = Json.toJson(jwk.toJSONString)
   }
   implicit val jwkReads: Reads[JWK] = JsPath.read[String].map(JWK.parse(_))
 
-  /**
-    * determine if the input string is a valid acme message of any 'type'.
-    *
-    * @param t the input string to test
-    * @return true if the input represents a valid acme type, else false
-    */
-  def isAcmeType(t: String): Boolean = {
-    messageTypeSet.contains(t) || challengeTypeSet.contains(t) || responseTypeSet.contains(t) || requestTypeSet.contains(t)
-  }
-
-  /**
-    * determine if the input json message is a valid acme message based on testing its "type" field
-    *
-    * @param msg the input json message to test
-    * @return true if the input json message represents a valid acme message type, else false
-    */
-  def isValidAcmeType(msg: JsValue) = {
-    (msg \ "type").asOpt[String] match {
-      case Some(t) => isAcmeType(t)
-      case None => false
-    }
-  }
+  //----------------------------------------------------------------------------
+  //-----------------supporting elements----------------------------------------
+  //----------------------------------------------------------------------------
 
   /**
     * An AcmeIdentifier encodes an identifier that can
@@ -76,8 +55,8 @@ package object AcmeProtocol {
     * @param value The identifier itself, default "dns"
     */
   final case class AcmeIdentifier(`type`: String = "dns", value: String = "dns") {
-    // consider only "dns" for now  todo
-    def identifierValid = "dns" == `type` && "dns" == value
+
+    def this(value: String) = this(`type` = "dns", value = value)
   }
 
   object AcmeIdentifier {
@@ -85,43 +64,9 @@ package object AcmeProtocol {
   }
 
   /**
-    * A JSON object that contains various clues for the client about what the requested key is, such that the client can find it.
-    *
-    * @param jwk                   A JSON Web Key object describing the public key whose corresponding private key should be used to generate the signature
-    * @param certFingerprints      An array of certificate fingerprints, hex-encoded SHA1 hashes of DER-encoded certificates that are known to contain this key
-    * @param certs                 An array of certificates, in PEM encoding, that contain acceptable public keys
-    * @param subjectKeyIdentifiers An array of hex-encoded Subject Key Identifiers (SKIDs) from certificate(s) that contain the key.
-    * @param serialNumbers         An array of serial numbers of certificates that are known to contain the requested key
-    * @param issuers               An array of X.509 Distinguished Names {{RFC5280}} of CAs that have been observed to issue certificates for this key
-    * @param authorizedFor         An array of domain names, if any, for which this server regards the key as an ACME Authorized key
-    */
-  final case class Hints(jwk: JWK, certFingerprints: Option[Array[String]] = None, certs: Option[Array[String]] = None,
-                         subjectKeyIdentifiers: Option[Array[String]] = None, serialNumbers: Option[Array[Long]] = None,
-                         issuers: Option[Array[String]] = None, authorizedFor: Option[Array[String]] = None)
-
-  object Hints {
-    implicit val fmt = Json.format[Hints]
-  }
-
-  /**
-    * a contact  .... todo ... not specified in acme yet
-    *
-    * @param name
-    * @param uri
-    * @param email
-    * @param tel
-    */
-  final case class Contact(name: Option[String] = None, uri: Option[String] = None, email: Option[String] = None, tel: Option[String] = None)
-
-  object Contact {
-    implicit val fmt = Json.format[Contact]
-  }
-
-  /**
     * ACME simple JSON-based structure for encoding signature.
     *
-    * @param alg   A token indicating the cryptographic algorithm used to compute the signature {{I-D.ietf-jose-json-web-algorithms}}.
-    *              (MAC algorithms such as "HS*" MUST NOT be used.)
+    * @param alg   A token indicating the cryptographic algorithm used to compute the signature
     * @param sig   The signature, base64-encoded.
     * @param nonce A signer-provided random nonce of at least 16 bytes, base64-encoded. (For anti-replay)
     * @param jwk   A JSON Web Key object describing the key used to verify the signature {{I-D.ietf-jose-json-web-key}}.
@@ -132,103 +77,320 @@ package object AcmeProtocol {
     implicit val fmt = Json.format[AcmeSignature]
   }
 
-  //----------------------------------------------------------------------------
-  //-----------------Message Type-----------------------------------------------
-  //----------------------------------------------------------------------------
-
   /**
-    * acme general message types: error, defer, statusRequest
+    * A recovery client key, a secret key with the server that can be used to recover the client account later.
+    *
+    * @param client The client’s ECDH public key
+    * @param length The length of the derived secret, in octets.
     */
-  val error = "error"
-  val defer = "defer"
-  val statusRequest = "statusRequest"
-  val messageTypeSet = Set(error, defer, statusRequest)
+  final case class RecoveryKeyClient(client: JWK, length: Int)
 
-  /**
-    * an acme message type
-    */
-  sealed trait MessageType {
-    val `type`: String
+  object RecoveryKeyClient {
+    implicit val fmt = Json.format[RecoveryKeyClient]
   }
 
-  object MessageType {
+  /**
+    * A recovery key generated by the server that can be used to recover the client account later.
+    *
+    * @param server The server’s ECDH public key
+    */
+  final case class RecoveryKeyServer(server: JWK)
 
-    val messageTypeReads = new Reads[MessageType] {
-      def reads(json: JsValue) = {
-        (json \ "type").asOpt[String] match {
-          case None => JsError("could not read jsValue: " + json + " into a MessageType")
-          case Some(msgType) =>
-            msgType match {
-              case `error` => Json.format[AcmeErrorMessage].reads(json)
-              case `defer` => Json.format[AcmeDefer].reads(json)
-              case `statusRequest` => Json.format[AcmeStatusRequest].reads(json)
-              case _ => JsError("could not read jsValue: " + json + " into a MessageType")
-            }
+  object RecoveryKeyServer {
+    implicit val fmt = Json.format[RecoveryKeyServer]
+  }
+
+  /**
+    * Error Codes
+    */
+  sealed trait ErrorCode
+
+  case object badCSR extends ErrorCode
+
+  case object badNonce extends ErrorCode
+
+  case object connection extends ErrorCode
+
+  case object dnssec extends ErrorCode
+
+  case object malformed extends ErrorCode
+
+  case object serverInternal extends ErrorCode
+
+  case object rateLimited extends ErrorCode
+
+  case object tls extends ErrorCode
+
+  case object unauthorized extends ErrorCode
+
+  case object unknownHost extends ErrorCode
+
+  case object unknownError extends ErrorCode
+
+
+  object ErrorCode {
+
+    /**
+      * convert a String value to a ErrorCode case object.
+      * NOTE: if the String value is null or the String value does not match, returns unknownError
+      *
+      * @param value to convert into a ErrorCode case object
+      */
+    def fromString(value: String): ErrorCode = {
+      if (value == null) unknownError
+      else {
+        value.trim match {
+          case "badCSR" => badCSR
+          case "badNonce" => badNonce
+          case "connection" => connection
+          case "dnssec" => dnssec
+          case "malformed" => malformed
+          case "serverInternal" => serverInternal
+          case "tls" => tls
+          case "unauthorized" => unauthorized
+          case "unknownHost" => unknownHost
+          case "rateLimited" => rateLimited
+          case _ => unknownError
         }
       }
     }
 
-    val messageTypeWrites = Writes[MessageType] {
-      case x: AcmeErrorMessage => Json.format[AcmeErrorMessage].writes(x)
-      case x: AcmeDefer => Json.format[AcmeDefer].writes(x)
-      case x: AcmeStatusRequest => Json.format[AcmeStatusRequest].writes(x)
+    val theReads = new Reads[ErrorCode] {
+      def reads(json: JsValue): JsResult[ErrorCode] = {
+        JsPath.read[String].reads(json).asOpt match {
+          case Some(err) => JsSuccess(fromString(err))
+          case None => JsSuccess(unknownError)
+        }
+      }
     }
 
-    implicit val fmt: Format[MessageType] = Format(messageTypeReads, messageTypeWrites)
+    val theWrites = new Writes[ErrorCode] {
+      def writes(err: ErrorCode) = {
+        if (err == null) JsString(unknownError.toString) else JsString(err.toString)
+      }
+    }
+
+    implicit val fmt: Format[ErrorCode] = Format(theReads, theWrites)
+  }
+
+  // the dictionary of all acme error codes and their descriptions
+  val errorCodeMap: Map[ErrorCode,String] = Map(
+    badCSR -> "The CSR is unacceptable (e.g., due to a short key)",
+    badNonce -> "The client sent an unacceptable anti-replay nonce",
+    connection -> "The server could not connect to the client to verify the domain",
+    dnssec -> "The server could not validate a DNSSEC signed domain",
+    malformed -> "The request message was malformed",
+    rateLimited -> "There were too many requests of a given type",
+    serverInternal -> "The server experienced an internal error",
+    tls -> "The server experienced a TLS error during domain verification",
+    unauthorized -> "The client lacks sufficient authorization",
+    unknownHost -> "The server could not resolve a domain name",
+    unknownError -> "unknownError"
+  )
+
+  /**
+    * resource types that indicate what type of resource the request is addressed to
+    */
+  sealed trait ResourceType
+  case object new_reg extends ResourceType { override def toString() = "new-reg"}
+  case object recover_reg extends ResourceType { override def toString() = "recover-reg"}
+  case object new_authz extends ResourceType { override def toString() = "new-authz"}
+  case object new_cert extends ResourceType { override def toString() = "new-cert"}
+  case object revoke_cert extends ResourceType { override def toString() = "revoke-cert"}
+  case object reg extends ResourceType { override def toString() = "reg"}
+  case object authz extends ResourceType { override def toString() = "authz"}
+  case object challenge extends ResourceType { override def toString() = "challenge"}
+  case object cert extends ResourceType { override def toString() = "cert"}
+
+  object ResourceType {
+
+    /**
+      * convert a String value to a ResourceType case object.
+      * NOTE: if the String value is null or the String value does not match, returns reg
+      *
+      * @param value to convert into a ResourceType case object
+      */
+    def fromString(value: String): ResourceType = {
+      if (value == null) reg
+      else {
+        value.trim match {
+          case "new-reg" => new_reg
+          case "recover-reg" => recover_reg
+          case "new-authz" => new_authz
+          case "new-cert" => new_cert
+          case "revoke-cert" => revoke_cert
+          case "reg" => reg
+          case "authz" => authz
+          case "challenge" => challenge
+          case "cert" => cert
+          case _ => reg
+        }
+      }
+    }
+
+    val theReads = new Reads[ResourceType] {
+      def reads(json: JsValue): JsResult[ResourceType] = {
+        JsPath.read[String].reads(json).asOpt match {
+          case Some(res) => JsSuccess(fromString(res))
+          case None => JsSuccess(reg)
+        }
+      }
+    }
+
+    val theWrites = new Writes[ResourceType] {
+      def writes(res: ResourceType) = {
+        if (res == null) JsString(reg.toString) else JsString(res.toString)
+      }
+    }
+
+    implicit val fmt: Format[ResourceType] = Format(theReads, theWrites)
+  }
+
+  // the set of all resource types as Strings
+  val resourceSet = Set(new_reg.toString(), recover_reg.toString(), new_authz.toString(), new_cert.toString(), revoke_cert.toString(), reg.toString(), authz.toString(), challenge.toString(), cert.toString())
+
+  /**
+    * authorization status codes
+    */
+  sealed trait StatusCode
+
+  case object unknown extends StatusCode
+
+  case object pending extends StatusCode
+
+  case object processing extends StatusCode
+
+  case object valid extends StatusCode
+
+  case object invalid extends StatusCode
+
+  case object revoked extends StatusCode
+
+  object StatusCode {
+
+    /**
+      * convert a String value to a StatusCode case object.
+      * NOTE: if the String value is null or the String value does not match, returns unknown
+      *
+      * @param value to convert into a StatusCode case object
+      */
+    def fromString(value: String): StatusCode = {
+      if (value == null) unknown
+      else {
+        value.trim match {
+          case "unknown" => unknown
+          case "pending" => pending
+          case "processing" => processing
+          case "valid" => valid
+          case "invalid" => invalid
+          case "revoked" => revoked
+          case _ => unknown
+        }
+      }
+    }
+
+    val theReads = new Reads[StatusCode] {
+      def reads(json: JsValue): JsResult[StatusCode] = {
+        JsPath.read[String].reads(json).asOpt match {
+          case Some(code) => JsSuccess(fromString(code))
+          case None => JsSuccess(unknown)
+        }
+      }
+    }
+
+    val theWrites = new Writes[StatusCode] {
+      def writes(err: StatusCode) = {
+        err match {
+          case `unknown` => JsString(unknown.toString)
+          case `pending` => JsString(pending.toString)
+          case `processing` => JsString(processing.toString)
+          case `valid` => JsString(valid.toString)
+          case `invalid` => JsString(invalid.toString)
+          case `revoked` => JsString(revoked.toString)
+          case _ => JsString(unknown.toString)
+        }
+      }
+    }
+
+    implicit val fmt: Format[StatusCode] = Format(theReads, theWrites)
+  }
+
+  sealed trait ErrorType
+
+  /**
+    * a generic acme error message.
+    *
+    * @param type    the acme error code, default "unknownError"
+    * @param detail  Typically a URL of a resource containing additional human-readable documentation about the error,
+    *                such as advice on how to revise the request or adjust the client
+    *                configuration to allow the request to succeed, or documentation
+    *                of CA issuance policies that describe why the request cannot be fulfilled
+    * @param title A short, human-readable summary of the problem
+    * @param status The HTTP status code generated by the origin server for this occurrence of the problem.
+    * @param instance A URI reference that identifies the specific occurrence of the problem.
+    * @param error error description, a token from the set of error types, indicating what type of error occurred
+    */
+  final case class AcmeErrorMessage(`type`: ErrorCode = unknownError, detail: String,
+                                    title: Option[String] = None, status: Option[Int] = None, instance: Option[String] = None,
+                                    error: Option[String] = None) extends ErrorType
+
+  object AcmeErrorMessage {
+    implicit val fmt = Json.format[AcmeErrorMessage]
   }
 
   /**
-    * an acme error message
+    * determine if the input json message is a AcmeErrorMessage based on testing its "type" field
     *
-    * @param type     type of the acme message, "error"
-    * @param error    error description, a token from the set of error types, indicating what type of error occurred
-    * @param message  A human-readable string describing the error
-    * @param moreInfo Typically a URL of a resource containing additional human-readable documentation about the error,
-    *                 such as advice on how to revise the request or adjust the client
-    *                 configuration to allow the request to succeed, or documentation
-    *                 of CA issuance policies that describe why the request cannot be fulfilled
+    * @param msg the input json message to test
+    * @return true if the input json message is a AcmeErrorMessage else false
     */
-  final case class AcmeErrorMessage(`type`: String = error, error: String, message: Option[String] = None,
-                                    moreInfo: Option[String] = None) extends MessageType
+  def isAcmeErrorType(msg: JsValue) = {
+    (msg \ "type").asOpt[String] match {
+      case Some(t) => errorCodeMap.keySet.contains(ErrorCode.fromString(t))
+      case None => false
+    }
+  }
 
   /**
-    * an acme defer message
+    * determine if the input json message is a ChallengeResponseType based on testing its "type" field
     *
-    * @param type     type of the acme message, "defer"
-    * @param token    An opaque value that the client uses to check on the status of the request (using a statusRequest message)
-    * @param interval The amount of time, in seconds, that the client should wait before checking on the status of the request.
-    *                 (This is a recommendation only, and clients SHOULD enforce minimum and maximum deferral times.)
-    * @param message  A human-readable string describing the reason for the deferral
+    * @param msg the input json message to test
+    * @return true if the input json message is a ChallengeResponseType else false
     */
-  final case class AcmeDefer(`type`: String = defer, token: String, interval: Option[Int] = None,
-                             message: Option[String] = None) extends MessageType
+  def isChallengeResponseType(msg: JsValue) = {
+    (msg \ "type").asOpt[String] match {
+      case Some(t) => challengeTypeSet.contains(t)
+      case None => false
+    }
+  }
 
   /**
-    * an acme statusRequest message
+    * determine if the input json message is a RequestType based on testing its "resource" field
     *
-    * @param type  type of the acme message, "statusRequest"
-    * @param token An opaque value that was provided in a defer message
+    * @param msg the input json message to test
+    * @return true if the input json message is a RequestType else false
     */
-  final case class AcmeStatusRequest(`type`: String = statusRequest, token: String) extends MessageType
+  def isRequestType(msg: JsValue) = {
+    (msg \ "resource").asOpt[String] match {
+      case Some(t) => resourceSet.contains(t)
+      case None => false
+    }
+  }
 
   //----------------------------------------------------------------------------
-  //-----------------Challenges-------------------------------------------------
+  //-----------------Challenge Type---------------------------------------------
   //----------------------------------------------------------------------------
 
-  /**
-    * acme challenge types: simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession.
-    * Note: these values can also be used in responses as well as challenges
-    */
   val simpleHttps = "simpleHttps"
   val dvsni = "dvsni"
   val dns = "dns"
-  val recoveryToken = "recoveryToken"
-  val recoveryContact = "recoveryContact"
   val proofOfPossession = "proofOfPossession"
-  val challengeTypeSet = Set(simpleHttps, dvsni, dns, recoveryToken, recoveryContact, proofOfPossession)
+
+  // acme challenge types set
+  val challengeTypeSet = Set(simpleHttps, dvsni, dns, proofOfPossession)
 
   /**
-    * a challenge type message
+    * a challenge type message sent by the CA server
     */
   sealed trait ChallengeType {
     val `type`: String
@@ -244,10 +406,8 @@ package object AcmeProtocol {
             case `simpleHttps` => Json.format[ChallengeSimpleHTTPS].reads(json)
             case `dvsni` => Json.format[ChallengeDVSNI].reads(json)
             case `dns` => Json.format[ChallengeDNS].reads(json)
-            case `recoveryToken` => Json.format[RecoveryToken].reads(json)
             case `proofOfPossession` => Json.format[ChallengeProofOfPossession].reads(json)
-            case `recoveryContact` => Json.format[ChallengeRecoveryContact].reads(json)
-            case _ => JsError("could not read jsValue: " + json + " into a ChallengeType")
+            case _ => JsError("could not process jsValue: " + json + " into a ChallengeType")
           }
         }
       }
@@ -257,359 +417,433 @@ package object AcmeProtocol {
       case x: ChallengeSimpleHTTPS => Json.format[ChallengeSimpleHTTPS].writes(x)
       case x: ChallengeDVSNI => Json.format[ChallengeDVSNI].writes(x)
       case x: ChallengeDNS => Json.format[ChallengeDNS].writes(x)
-      case x: RecoveryToken => Json.format[RecoveryToken].writes(x)
       case x: ChallengeProofOfPossession => Json.format[ChallengeProofOfPossession].writes(x)
-      case x: ChallengeRecoveryContact => Json.format[ChallengeRecoveryContact].writes(x)
     }
 
     implicit val fmt: Format[ChallengeType] = Format(challengeTypeReads, challengeTypeWrites)
-
   }
 
   /**
     * Simple HTTPS validation challenge
     *
-    * @param type  type of the challenge, "simpleHttps"
-    * @param token The value to be provisioned in the file. This value MUST have at least 128 bits of entropy,
-    *              in order to prevent an attacker from guessing it. It MUST NOT contain any non-ASCII characters.
+    * @param type     type of the challenge, "simpleHttps"
+    * @param uri     The URI to which a response can be posted.
+    * @param tls     Transport Layer Security (TLS) option
+    * @param token    The value to be used in generation of validation JWS.
+    * @param status    The status of this authorization. Possible values are: “unknown”, “pending”, “processing”, “valid”, “invalid” and “revoked”.
+    * @param validated The time at which this challenge was completed by the server,
+    * @param error possible error
     */
-  final case class ChallengeSimpleHTTPS(`type`: String = simpleHttps, token: String) extends ChallengeType
+  final case class ChallengeSimpleHTTPS(`type`: String = simpleHttps,
+                                        uri: String, token: String, tls: Boolean = true,
+                                        status: Option[StatusCode] = None, validated: Option[String] = None,
+                                        error: Option[AcmeErrorMessage] = None) extends ChallengeType
 
   /**
     * a dvsni challenge
     *
-    * @param type type of the challenge, "dvsni"
+    * @param type     type of the challenge, "dvsni"
+    * @param uri     The URI to which a response can be posted.
+    * @param token    The value to be used in generation of validation JWS.
+    * @param status    The status of this authorization. Possible values are: “unknown”, “pending”, “processing”, “valid”, “invalid” and “revoked”.
+    * @param validated The time at which this challenge was completed by the server,
+    * @param error possible error
     */
-  final case class ChallengeDVSNI(`type`: String = dvsni) extends ChallengeType
+  final case class ChallengeDVSNI(`type`: String = dvsni, uri: String, token: String,
+                                  status: Option[StatusCode] = None, validated: Option[String] = None,
+                                  error: Option[AcmeErrorMessage] = None) extends ChallengeType
 
   /**
     * a dns challenge
     *
-    * @param type  type of the challenge, "dns"
-    * @param token An ASCII string that is to be provisioned in the TXT record.
-    *              This string SHOULD be randomly generated, with at least 128 bits of entropy
-    *              (e.g., a hex-encoded random octet string).
+    * @param type     type of the challenge, "dns"
+    * @param uri     The URI to which a response can be posted.
+    * @param token    The token value from the server-provided challenge object
+    * @param status    The status of this authorization. Possible values are: “unknown”, “pending”, “processing”, “valid”, “invalid” and “revoked”.
+    * @param validated The time at which this challenge was completed by the server,
+    * @param error possible error
     */
-  final case class ChallengeDNS(`type`: String = dns, token: String) extends ChallengeType
-
-  /**
-    * a recovery token challenge
-    *
-    * @param type type of the challenge, "recoveryToken"
-    */
-  final case class RecoveryToken(`type`: String = recoveryToken) extends ChallengeType
+  final case class ChallengeDNS(`type`: String = dns, uri: String, token: String,
+                                status: Option[StatusCode] = None, validated: Option[String] = None,
+                                error: Option[AcmeErrorMessage] = None) extends ChallengeType
 
   /**
     * a proofOfPossession challenge
     *
     * @param type  type of the challenge, "proofOfPossession"
-    * @param alg   A token indicating the cryptographic algorithm that should be used by the client to
-    *              compute the signature {{I-D.ietf-jose-json-web-algorithms}}.
-    * @param nonce A random 16-byte octet string, base64-encoded
-    * @param hints A JSON object that contains various clues for the client about what the requested key is,
-    *              such that the client can find it. May include a jwk object.
+    * @param certs An array of certificates, in Base64-encoded DER format, that contain acceptable public keys.
+    * @param status    The status of this authorization. Possible values are: “unknown”, “pending”, “processing”, “valid”, “invalid” and “revoked”.
+    * @param validated The time at which this challenge was completed by the server,
+    * @param error possible error
     */
-  final case class ChallengeProofOfPossession(`type`: String = proofOfPossession, alg: String, nonce: String, hints: Hints) extends ChallengeType
-
-  /**
-    * a recovery contact challenge
-    *
-    * @param type          type of the challenge, "recoveryContact"
-    * @param activationURL A URL the client can visit to cause a recovery message to be sent to client's contact address.
-    * @param successURL    A URL the client may poll to determine if the user has successfully clicked a link or completed other tasks specified by the recovery message.
-    * @param contact       A full or partly obfuscated version of the contact URI that the server will use to contact the client.
-    */
-  final case class ChallengeRecoveryContact(`type`: String = recoveryContact, activationURL: Option[String] = None, successURL: Option[String] = None, contact: Option[Contact] = None) extends ChallengeType
+  final case class ChallengeProofOfPossession(`type`: String = proofOfPossession, certs: Option[Array[String]],
+                                              status: Option[StatusCode] = None, validated: Option[String] = None,
+                                              error: Option[AcmeErrorMessage] = None) extends ChallengeType
 
   //----------------------------------------------------------------------------
-  //-----------------Responses--------------------------------------------------
+  //-----------------Request Type-----------------------------------------------
   //----------------------------------------------------------------------------
 
   /**
-    * acme response message types: challenge, authorization, revocation, certificate
-    * Note: these values can also be used in response to challenges as well as ResponseType messages
+    * an acme request message type
     */
-  val challenge = "challenge"
-  val authorization = "authorization"
-  val revocation = "revocation"
-  val certificate = "certificate"
-  val responseTypeSet = Set(challenge, authorization, revocation, certificate)
+  sealed trait RequestType {
+    val resource: ResourceType
+  }
 
   /**
-    * random value and nonce (server) response to a dvsni challenge request
+    * a registration request.
     *
-    * @param type  type of the response, "dvsni"
-    * @param r     A random 32-byte octet, base64-encoded
-    * @param nonce A random 16-byte octet string, hex-encoded (so that it can be used as a DNS label)
+    * @param resource       The type of resource the request is addressed to, specifically "new-reg"
+    * @param key            The public key of the account key pair, encoded as a JSON Web Key object
+    * @param recoveryKey    The client recoveryKey
+    * @param contact        An array of URIs that the server can use to contact the client for issues related to this authorization.
+    * @param agreement      A URI referring to a subscriber agreement or terms of service provided by the server.
+    * @param authorizations A URI from which a list of authorizations granted to this account can be fetched via a GET request.
+    * @param certificates   A URI from which a list of certificates issued for this account can be fetched via a GET request.
     */
-  final case class DVSNIResponceR(`type`: String = dvsni, r: String, nonce: String) extends ResponseType
-
-  object DVSNIResponceR {
-    implicit val fmt = Json.format[DVSNIResponceR]
-  }
-
-  /**
-    * random value (client) response to a dvsni challenge request
-    *
-    * @param type type of the response, "dvsni"
-    * @param s    A random 32-byte secret octet string, base64-encoded
-    */
-  final case class DVSNIResponceS(`type`: String = dvsni, s: String) extends ResponseType
-
-  object DVSNIResponceS {
-    implicit val fmt = Json.format[DVSNIResponceS]
-  }
-
-  /**
-    * an acme response message type
-    */
-  sealed trait ResponseType {
-    val `type`: String
-  }
-
-  object ResponseType {
+  final case class RegistrationRequest(resource: ResourceType, key: Option[JWK] = None,
+                                       recoveryKey: Option[RecoveryKeyClient] = None,
+                                       contact: Option[Array[String]] = None,
+                                       agreement: Option[String] = None,
+                                       authorizations: Option[String] = None,
+                                       certificates: Option[String] = None) extends RequestType {
 
     /**
-      * reads for dvsni ResponseTypes as there are 2 dvsni responses, return the appropriate one
-      *
-      * @param json the json value to read
-      * @return a JsResult or an Error
+      * a new account ("new-reg") request
+      * @param contact An array of URIs that the server can use to contact the client for issues related to this authorization.
       */
-    private def dvsniReads(json: JsValue) = {
-      json match {
-        case x if json.validate[DVSNIResponceR].isSuccess => DVSNIResponceR.fmt.reads(json)
-        case x if json.validate[DVSNIResponceS].isSuccess => DVSNIResponceS.fmt.reads(json)
-        case _ => JsError("could not read jsValue: " + json + " into a dvsni response")
-      }
-    }
+    def this(contact: Array[String]) = this(resource = new_reg, contact = Option(contact))
 
-    val responseTypeReads = new Reads[ResponseType] {
+    /**
+      * update a registration ("reg") request
+      */
+    def this() = this(resource = reg)
+
+
+  }
+
+  object RegistrationRequest {
+    implicit val fmt = Json.format[RegistrationRequest]
+  }
+
+  /**
+    * MAC-based recovery request
+    *
+    * @param resource The type of resource the request is addressed to, specifically "recover-reg"
+    * @param method   The string “mac”
+    * @param base     The URI for the registration to be recovered.
+    * @param mac      A JSON-formatted JWS object using an HMAC algorithm, whose payload is the JWK representation
+    *                 of the public key of the new account key pair.
+    */
+  final case class MACBasedRecoveryRequest(resource: ResourceType = recover_reg, method: String = "mac",
+                                           base: String, mac: JWK) extends RequestType
+
+  object MACBasedRecoveryRequest {
+    implicit val fmt = Json.format[MACBasedRecoveryRequest]
+  }
+
+  /**
+    * contact-based recovery request
+    *
+    * @param resource The type of resource the request is addressed to, specifically "recover-reg"
+    * @param method   The string “contact”
+    * @param base     The URI for the registration to be recovered.
+    * @param contact  An array of URIs that the server can use to contact the client
+    */
+  final case class ContactBasedRecoveryRequest(resource: ResourceType = recover_reg, method: String = "contact",
+                                               base: String, contact: Array[String]) extends RequestType
+
+  object ContactBasedRecoveryRequest {
+    implicit val fmt = Json.format[ContactBasedRecoveryRequest]
+  }
+
+  /**
+    * a polling status request by the client.
+    * @param resource The type of resource the request is addressed to, default "reg"
+    */
+  final case class StatusRequest(resource: ResourceType = reg) extends RequestType
+
+  object StatusRequest {
+    implicit val fmt = Json.format[StatusRequest]
+  }
+
+  /**
+    * An Authorization Request
+    *
+    * @param resource   The type of resource the request is addressed to, specifically "new-authz"
+    * @param identifier The identifier that the account is authorized to represent
+    */
+  final case class AuthorizationRequest(resource: ResourceType = new_authz, identifier: AcmeIdentifier) extends RequestType
+
+  object AuthorizationRequest {
+    implicit val fmt = Json.format[AuthorizationRequest]
+  }
+
+  /**
+    * A certificate issuance request
+    *
+    * @param resource The type of resource the request is addressed to, specifically "new-cert"
+    * @param csr      A CSR encoding the parameters for the certificate being requested.
+    */
+  final case class CertificateRequest(resource: ResourceType = new_cert, csr: String) extends RequestType
+
+  object CertificateRequest {
+    implicit val fmt = Json.format[CertificateRequest]
+  }
+
+  /**
+    * A certificate revocation request
+    *
+    * @param resource  The type of resource the request is addressed to, specifically "revoke_cert"
+    * @param certificate the certificate to revoke
+    */
+  final case class RevocationRequest(resource: ResourceType = revoke_cert, certificate: String) extends RequestType
+
+  object RevocationRequest {
+    implicit val fmt = Json.format[RevocationRequest]
+  }
+
+  //----------------------------------------------------------------------------
+  //-----------------Challenge Response Type------------------------------------
+  //----------------------------------------------------------------------------
+
+  /**
+    * challenge response type sent by the client
+    */
+  sealed trait ChallengeResponseType
+
+  /**
+    * response by the client to the server simple HTTPS challenge
+    *
+    * @param type type of the response, "simpleHttps"
+    * @param tls  Transport Layer Security (TLS) option
+    * @param error possible error
+    */
+  final case class SimpleHTTPSResponse(`type`: String = simpleHttps, tls: Option[Boolean] = Some(true),
+                                       error: Option[AcmeErrorMessage] = None) extends ChallengeResponseType
+
+  /**
+    * response by the client to the server dvsni challenge
+    *
+    * @param type       type of the challenge, "dvsni"
+    * @param validation The JWS object computed with the validation object and the account key
+    * @param error possible error
+    */
+  final case class DVSNIResponse(`type`: String = dvsni, validation: JWK,
+                                 error: Option[AcmeErrorMessage] = None) extends ChallengeResponseType
+
+  /**
+    * response by the client to the server dns challenge
+    *
+    * @param type            type of the response, "dns"
+    * @param clientPublicKey the client publicKey
+    * @param validation      The JWS object computed with the validation object and the account key
+    * @param error possible error
+    */
+  final case class DNSResponse(`type`: String = dns, clientPublicKey: JWK, validation: JWK,
+                               error: Option[AcmeErrorMessage] = None) extends ChallengeResponseType
+
+  /**
+    * response by the client to the server proofOfPossession challenge
+    *
+    * @param type          type of the response, "proofOfPossession"
+    * @param identifiers   A list of identifiers for which the holder of the prior key authorizes the new key
+    * @param accountKey    The client’s account public key
+    * @param authorization The validation JWS
+    * @param error possible error
+    */
+  final case class ProofOfPossessionResponse(`type`: String = proofOfPossession, identifiers: AcmeIdentifier,
+                                             accountKey: JWK, authorization: JWK,
+                                             error: Option[AcmeErrorMessage] = None) extends ChallengeResponseType
+
+  /**
+    * Challenge Response Type
+    */
+  object ChallengeResponseType {
+
+    val theReads = new Reads[ChallengeResponseType] {
       def reads(json: JsValue) = {
         (json \ "type").asOpt[String] match {
-          case None => JsError("could not read jsValue: " + json + " into a ResponseType")
           case Some(msgType) =>
             msgType match {
               case `simpleHttps` => Json.format[SimpleHTTPSResponse].reads(json)
-              case `dvsni` => dvsniReads(json)
+              case `dvsni` => Json.format[DVSNIResponse].reads(json)
               case `dns` => Json.format[DNSResponse].reads(json)
-              case `recoveryToken` => Json.format[RecoveryTokenResponse].reads(json)
               case `proofOfPossession` => Json.format[ProofOfPossessionResponse].reads(json)
-              case `recoveryContact` => Json.format[RecoveryContactResponse].reads(json)
-              case `challenge` => Json.format[Challenge].reads(json)
-              case `authorization` => Json.format[Authorization].reads(json)
-              case `certificate` => Json.format[Certificate].reads(json)
-              case `revocation` => Json.format[Revocation].reads(json)
               case _ => JsError("could not read jsValue: " + json + " into a ResponseType")
             }
+          case None => JsError("could not read jsValue: " + json + " into a ResponseType")
         }
       }
     }
 
-    val responseTypeWrites = Writes[ResponseType] {
+    val theWrites = Writes[ChallengeResponseType] {
       case x: SimpleHTTPSResponse => Json.format[SimpleHTTPSResponse].writes(x)
-      case x: DVSNIResponceS => DVSNIResponceS.fmt.writes(x)
-      case x: DVSNIResponceR => DVSNIResponceR.fmt.writes(x)
+      case x: DVSNIResponse => Json.format[DVSNIResponse].writes(x)
       case x: DNSResponse => Json.format[DNSResponse].writes(x)
-      case x: RecoveryTokenResponse => Json.format[RecoveryTokenResponse].writes(x)
       case x: ProofOfPossessionResponse => Json.format[ProofOfPossessionResponse].writes(x)
-      case x: RecoveryContactResponse => Json.format[RecoveryContactResponse].writes(x)
-      case x: Challenge => Json.format[Challenge].writes(x)
-      case x: Authorization => Json.format[Authorization].writes(x)
-      case x: Certificate => Json.format[Certificate].writes(x)
-      case x: Revocation => Json.format[Revocation].writes(x)
     }
 
-    implicit val fmt: Format[ResponseType] = Format(responseTypeReads, responseTypeWrites)
+    implicit val fmt: Format[ChallengeResponseType] = Format(theReads, theWrites)
 
   }
 
-  /**
-    * response by the client to the simple HTTPS challenge request
-    *
-    * @param type type of the response, "simpleHttps"
-    * @param path The string to be appended to the standard prefix ".well-known/acme-challenge" in order to
-    *             form the path at which the nonce resource is provisioned. The result of concatenating
-    *             the prefix with this value MUST match the "path" production in the standard URI format {{RFC3986}}
-    */
-  final case class SimpleHTTPSResponse(`type`: String = simpleHttps, path: String) extends ResponseType
+  //----------------------------------------------------------------------------
+  //-----------------Response Type----------------------------------------------
+  //----------------------------------------------------------------------------
 
   /**
-    * a response to a dns challenge
-    *
-    * @param type type of the response, "dns"
+    * acme response constants
     */
-  final case class DNSResponse(`type`: String = dns) extends ResponseType
+  val recoveryToken = "recoveryToken"
+  val recoveryContact = "recoveryContact"
+
+  /**
+    * an acme response type
+    */
+  sealed trait ResponseType
 
   /**
     * a recovery token client response
     *
-    * @param type  type of the challenge, "recoveryToken
+    * @param type  type of the response, "recoveryToken
     * @param token The recovery token provided by the server with an authorize message.
+    * @param error possible error
     */
-  final case class RecoveryTokenResponse(`type`: String = recoveryToken, token: Option[String]) extends ResponseType
+  final case class RecoveryTokenResponse(`type`: String = recoveryToken, token: Option[String] = None,
+                                         error: Option[AcmeErrorMessage] = None) extends ResponseType
 
-  /**
-    * a response to a proofOfPossession challenge
-    *
-    * @param type      type of the response, "proofOfPossession"
-    * @param nonce     A random 16-byte octet string, base64-encoded
-    * @param signature The ACME signature computed over the signature-input using the server-specified algorithm
-    */
-  final case class ProofOfPossessionResponse(`type`: String = proofOfPossession, nonce: String,
-                                             signature: AcmeSignature) extends ResponseType
-
-  /**
-    * a challenge response
-    *
-    * @param type         type of the response, "challenge"
-    * @param sessionID    An opaque string that allows the server to correlate transactions related to this challenge request.
-    * @param nonce        A base64-encoded octet string that the client is expected to sign with the private key of the key pair being authorized.
-    * @param challenges   A list of challenges to be fulfilled by the client in order to prove possession of the identifier.
-    *                     The syntax for challenges is described in Section {{identifier-validation-challenges}}.
-    * @param combinations A collection of sets of challenges, each of which would be sufficient to prove possession of the identifier.
-    *                     Clients SHOULD complete a set of challenges that that covers at least one set in this array.
-    *                     Challenges are represented by their associated zero-based index in the challenges array.
-    */
-  final case class Challenge(`type`: String = challenge, sessionID: String, nonce: String,
-                             challenges: List[ChallengeType] = List.empty,
-                             combinations: Option[Array[Array[Int]]]) extends ResponseType
+  object RecoveryTokenResponse {
+    implicit val fmt = Json.format[RecoveryTokenResponse]
+  }
 
   /**
     * a recovery contact response
     *
     * @param type  type of the response, "recoveryContact"
     * @param token If the user transferred a token from a contact email or call into the client software, the client sends it here.
+    * @param error possible error
     */
-  final case class RecoveryContactResponse(`type`: String = recoveryContact, token: Option[String] = None) extends ResponseType
+  final case class RecoveryContactResponse(`type`: String = recoveryContact, token: Option[String] = None,
+                                           error: Option[AcmeErrorMessage] = None) extends ResponseType
 
-  /**
-    * an authorization response message sent by the server
-    *
-    * @param type          type of the response, "authorization"
-    * @param recoveryToken An arbitrary server-generated string. If the server provides a recovery token, it MUST
-    *                      generate a unique value for every authorization transaction, and this value MUST NOT
-    *                      be predictable or guessable by a third party.
-    * @param identifier    The identifier for which authorization has been granted.
-    * @param jwk           A JSON Web Key object describing the authorized public key.
-    */
-  final case class Authorization(`type`: String = authorization, recoveryToken: Option[String] = None,
-                                 identifier: Option[String] = None, jwk: Option[JWK] = None) extends ResponseType
+  object RecoveryContactResponse {
+    implicit val fmt = Json.format[RecoveryContactResponse]
+  }
 
   /**
     * a certificate issuance response message
     *
-    * @param type        type of the response, "certificate"
     * @param certificate The issued certificate, as a base64-encoded DER certificate.
-    * @param chain       A chain of CA certificates (AcmeCertificate) which are parents of the issued certificate.
-    *                    Each certificate is in base64-encoded DER form (not PEM, as for CSRs above).
-    *                    This array MUST be presented in the same order as would be required in
-    *                    a TLS handshake {{RFC5246}}.
-    * @param refresh     An HTTP or HTTPS URI from which updated versions of this certificate can be fetched.
     */
-  final case class Certificate(`type`: String = certificate, certificate: String,
-                               chain: Option[List[String]] = None, refresh: Option[String] = None) extends ResponseType
+  final case class Certificate(certificate: String) extends ResponseType
 
-  /**
-    * a revocation of certificate response message issued by the CA server, this represents a successful revocation
-    *
-    * @param type type of the response, "revocation"
-    */
-  final case class Revocation(`type`: String = revocation) extends ResponseType
+  object Certificate {
 
-  //----------------------------------------------------------------------------
-  //-----------------Requests---------------------------------------------------
-  //----------------------------------------------------------------------------
-
-  /**
-    * acme request message types: challengeRequest, authorizationRequest, certificateRequest, revocationRequest
-    */
-  val challengeRequest = "challengeRequest"
-  val authorizationRequest = "authorizationRequest"
-  val certificateRequest = "certificateRequest"
-  val revocationRequest = "revocationRequest"
-  val requestTypeSet = Set(challengeRequest, authorizationRequest, certificateRequest, revocationRequest)
-
-  /**
-    * an acme request message type
-    */
-  sealed trait RequestType {
-    val `type`: String
-  }
-
-  object RequestType {
-
-    val requestTypeReads = new Reads[RequestType] {
-      def reads(json: JsValue) = {
-        (json \ "type").asOpt[String] match {
-          case None => JsError("could not read jsValue: " + json + " into a RequestType")
-          case Some(msgType) =>
-            msgType match {
-              case `challengeRequest` => Json.format[ChallengeRequest].reads(json)
-              case `certificateRequest` => Json.format[CertificateRequest].reads(json)
-              case `revocationRequest` => Json.format[RevocationRequest].reads(json)
-              case `authorizationRequest` => Json.format[AuthorizationRequest].reads(json)
-              case _ => JsError("could not read jsValue: " + json + " into a RequestType")
-            }
+    val theReads = new Reads[Certificate] {
+      def reads(json: JsValue): JsResult[Certificate] = {
+        JsPath.read[String].reads(json).asOpt match {
+          case Some(str) => JsSuccess(Certificate(str))
+          case None => JsError("could not process jsValue: " + json + " into a certificate")
         }
       }
     }
 
-    val requestTypeWrites = Writes[RequestType] {
-      case x: ChallengeRequest => Json.format[ChallengeRequest].writes(x)
-      case x: CertificateRequest => Json.format[CertificateRequest].writes(x)
-      case x: RevocationRequest => Json.format[RevocationRequest].writes(x)
-      case x: AuthorizationRequest => Json.format[AuthorizationRequest].writes(x)
+    val theWrites = new Writes[Certificate] {
+      def writes(cert: Certificate) = JsString(cert.certificate)
     }
 
-    implicit val fmt: Format[RequestType] = Format(requestTypeReads, requestTypeWrites)
+    implicit val fmt: Format[Certificate] = Format(theReads, theWrites)
   }
 
   /**
-    * a challengeRequest message
+    * An ACME authorization object represents the server’s authorization for an account to represent an identifier.
     *
-    * @param type       type of the request, "challengeRequest"
-    * @param identifier The identifier for which authorization is being sought.
-    *                   For implementations of this specification, this identifier MUST be a domain name.
-    *                   (If other types of identifier are supported, then an extension to this protocol
-    *                   will need to add a field to distinguish types of identifier.)
+    * @param identifier   The identifier that the account is authorized to represent
+    * @param challenges   The challenges that the client needs to fulfill in order to prove possession of the identifier (for pending authorizations).
+    * @param combinations A collection of sets of challenges, each of which would be sufficient to prove possession of the identifier.
+    * @param status       The status of this authorization. Possible values are: “unknown”, “pending”, “processing”, “valid”, “invalid” and “revoked”.
+    *                     If this field is missing, then the default value is “pending”.
+    * @param expires      The date after which the server will consider this authorization invalid, encoded in the format specified in RFC 3339
+    * @param error possible error
     */
-  final case class ChallengeRequest(`type`: String = challengeRequest, identifier: String) extends RequestType
+  final case class AuthorizationResponse(identifier: AcmeIdentifier,
+                                         challenges: List[ChallengeType] = List.empty,
+                                         combinations: Option[Array[Array[Int]]] = None,
+                                         status: Option[StatusCode] = Some(pending),
+                                         expires: Option[String] = None,
+                                         error: Option[AcmeErrorMessage] = None) extends ResponseType {
+
+    /**
+      * A pending authorization server response.
+      *
+      * @param identifier   The identifier that the account is authorized to represent
+      * @param challenges   The challenges that the client needs to fulfill in order to prove possession of the identifier (for pending authorizations).
+      * @param combinations A collection of sets of challenges, each of which would be sufficient to prove possession of the identifier.
+      */
+    def this(identifier: AcmeIdentifier, challenges: List[ChallengeType], combinations: Array[Array[Int]]) =
+      this(identifier, challenges, Some(combinations), Some(pending), None, None)
+
+  }
+
+  object AuthorizationResponse {
+    implicit val fmt = Json.format[AuthorizationResponse]
+  }
 
   /**
-    * A certificate signing request (CSR)
+    * An ACME registration resource represents a set of metadata associated to an account key pair.
     *
-    * @param type      type of the request, "certificateRequest"
-    * @param csr       A CSR encoding the parameters for the certificate being requested.
-    *                  The CSR is sent in base64-encoded version the DER format.
-    *                  (Note: This field uses the same modified base64-encoding rules used elsewhere in this document, so it is different from PEM.)
-    * @param signature A signature object reflecting a signature by an authorized key pair over the CSR.
-    *
+    * @param key            The public key of the account key pair, encoded as a JSON Web Key object
+    * @param contact        An array of URIs that the server can use to contact the client for issues related to this authorization.
+    * @param recoveryKey    The server recovery key
+    * @param agreement      A URI referring to a subscriber agreement or terms of service provided by the server.
+    * @param authorizations A URI from which a list of authorizations granted to this account can be fetched via a GET request.
+    * @param certificates   A URI from which a list of certificates issued for this account can be fetched via a GET request.
+    * @param error possible error
     */
-  final case class CertificateRequest(`type`: String = certificateRequest, csr: String, signature: AcmeSignature) extends RequestType
+  final case class RegistrationResponse(key: JWK, contact: Option[Array[String]] = None,
+                                        recoveryKey: Option[RecoveryKeyServer] = None,
+                                        agreement: Option[String] = None,
+                                        authorizations: Option[String] = None,
+                                        certificates: Option[String] = None,
+                                        error: Option[AcmeErrorMessage] = None) extends ResponseType
+
+  object RegistrationResponse {
+    implicit val fmt = Json.format[RegistrationResponse]
+  }
 
   /**
-    * request that a signed certificate be revoked
+    * directory is a JSON dictionary whose keys are the “resource” values and
+    * whose values are the URIs used to accomplish the corresponding function.
     *
-    * @param type        type of the request, "revocationRequest"
-    * @param certificate The certificate to be revoked.
-    * @param signature   A signature object reflecting a signature by an authorized key pair over the certificate.
+    * @param directory map of resource -> URI
     */
-  final case class RevocationRequest(`type`: String = revocationRequest, certificate: String, signature: AcmeSignature) extends RequestType
+  final case class Directory(directory: Map[ResourceType, String]) extends ResponseType
 
-  /**
-    * an authorization request
-    *
-    * @param type      type of the request, "authorizationRequest"
-    * @param sessionID The session ID provided by the server in the challenge message (to allow the server to correlate the two transactions).
-    * @param nonce     The nonce provided by the server in the challenge message.
-    * @param signature A signature object reflecting a signature over the identifier being authorized and the nonce provided by the server.
-    * @param responses The client's responses to the server's challenges, in the same order as the challenges.
-    *                  If the client chooses not to respond to a given challenge, then the corresponding entry
-    *                  in the response array is set to null. Otherwise, it is set to a value defined by the challenge type.
-    * @param contact   An array of URIs that the server can use to contact the client for issues related to this authorization.
-    */
-  final case class AuthorizationRequest(`type`: String = authorizationRequest, sessionID: String, nonce: String,
-                                        signature: AcmeSignature, responses: List[ResponseType] = List.empty,
-                                        contact: Option[List[Contact]] = None) extends RequestType
+  object Directory {
+
+    import AcmeImplicits._
+
+    val theReads = new Reads[Directory] {
+      def reads(json: JsValue): JsResult[Directory] = {
+        JsPath.read[Map[String, String]].reads(json).asOpt match {
+          case Some(dir) => JsSuccess(new Directory(dir)) // AcmeImplicits does the convertion
+          case None => JsSuccess(new Directory(Map[ResourceType, String]()))  // todo log an error?
+        }
+      }
+    }
+
+    val theWrites = new Writes[Directory] {
+      def writes(dir: Directory) = {
+        Json.obj(dir.directory.map { case (k, v) =>
+          val entry: (String, JsValueWrapper) = k.toString -> JsString(v.asInstanceOf[String])
+          entry
+        }.toSeq: _*)
+      }
+    }
+
+    implicit val fmt: Format[Directory] = Format(theReads, theWrites)
+  }
 
 }

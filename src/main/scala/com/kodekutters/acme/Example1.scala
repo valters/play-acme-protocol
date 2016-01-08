@@ -3,7 +3,7 @@ package com.kodekutters.acme
 import java.net.URL
 import com.kodekutters.Util._
 import com.kodekutters.acme.AcmeProtocol._
-import com.nimbusds.jose.Algorithm
+import com.nimbusds.jose.{JWSAlgorithm, Algorithm}
 import com.nimbusds.jose.jwk.{KeyUse, RSAKey}
 import com.nimbusds.jose.util.Base64URL
 import play.api.libs.json.{JsError, JsSuccess, Json}
@@ -17,49 +17,38 @@ object Example1 {
   def main(args: Array[String]) {
 
     // json representation of an Authorization Request
-    val jsVal = Json.parse(
-      """{"type":"authorizationRequest","sessionID":"aefoGaavieG9Wihuk2aufai3aeZ5EeW4","nonce":"czpsrF0KMH6dgajig3TGHw","signature":{"alg":"ES256","sig":"lxj0Ucdo4r5s1c1cuY2R7oKqWi4QuNJzdwe5/4m9zWQ","nonce":"Aenb3DvfvOPImdXdnxHMlp7Jh4qsgYeTEM-dFgFOGxU","jwk":"{\"kty\":\"RSA\",\"e\":\"e\",\"use\":\"sig\",\"x5t\":\"something here\",\"kid\":\"kid\",\"x5u\":\"https:\\/\\/www.example.com\",\"alg\":\"ES256\",\"n\":\"n\"}"},
-         "responses":[ {"type": "simpleHttps","path": "Hf5GrX4Q7EBax9hc2jJnfw"},{"type": "recoveryToken","token": "23029d88d9e123e"} ],
-        "contact":[ ]
-        }""".stripMargin)
+    val jsVal = Json.parse(""" {"resource":"new_authz","identifier": {"type": "dns", "value": "example.org"}} """.stripMargin)
 
     // the scala AuthorizationRequest from the json
-    val theRequest = Json.fromJson[RequestType](jsVal).asOpt
+    val theRequest = Json.fromJson[AuthorizationRequest](jsVal).asOpt
     println("theRequest: " + theRequest)
 
     // validate the json message and turn it into a scala AuthorizationRequest
-    jsVal.validate[RequestType] match {
-      case request: JsSuccess[RequestType] => println("\nvalidated AuthorizationRequest: " + request.get)
-      case e: JsError => println("\nError: " + JsError.toFlatJson(e).toString())
+    jsVal.validate[AuthorizationRequest] match {
+      case request: JsSuccess[AuthorizationRequest] => println("\nvalidated AuthorizationRequest: " + request.get)
+      case e: JsError => println("\nError: " + JsError.toJson(e).toString())
     }
 
     // ..... starting with scala objects
 
     // a JWK object, a RSAKey
-    val rsakey = new RSAKey(new Base64URL("n"), new Base64URL("e"), KeyUse.SIGNATURE,
-      null, new Algorithm("ES256"), "kid", new URL("https://www.example.com"),
-      new Base64URL("something here"), null)
+    val rsakey = new RSAKey(new Base64URL("abc"), new Base64URL("def"), KeyUse.SIGNATURE,
+      null, JWSAlgorithm.RS256, "5678", null, null, null)
 
     // a AcmeSignature
-    val sig = new AcmeSignature(nonce = "Aenb3DvfvOPImdXdnxHMlp7Jh4qsgYeTEM-dFgFOGxU",
+    val sig = new AcmeSignature(nonce = newNonce,
       alg = "ES256", jwk = rsakey, sig = "lxj0Ucdo4r5s1c1cuY2R7oKqWi4QuNJzdwe5/4m9zWQ")
 
     // the AuthorizationRequest
-    val authReq = new AuthorizationRequest(
-      sessionID = "aefoGaavieG9Wihuk2aufai3aeZ5EeW4",
-      nonce = "czpsrF0KMH6dgajig3TGHw",
-      signature = sig,
-      responses = List.empty,
-      contact = None)
+    val authReq = new AuthorizationRequest(identifier = new AcmeIdentifier())
 
     println("\nauthReq: " + authReq)
 
     // convert the scala AuthorizationRequest into a json message
-    println("\njson authReq: " + Json.toJson(authReq))
-
+    println("\njson authReq: " + Json.prettyPrint(Json.toJson(authReq)))
 
     // the list of challenges
-    val challengeList = List(new ChallengeSimpleHTTPS(token = newToken), new ChallengeDNS(token = newToken), new RecoveryToken("xxx"))
+    val challengeList = List(new ChallengeSimpleHTTPS(uri = "some-uri", token = newToken), new ChallengeDNS(uri = "some-uri", token = newToken))
 
     // the challenges combinations
     val combins = Array.ofDim[Int](2, 2)
@@ -68,20 +57,19 @@ object Example1 {
     combins(1)(0) = 1
     combins(1)(1) = 2
 
-    // create a challenge response
-    val theChallenge = new Challenge(sessionID = newNonce, nonce = newNonce, challenges = challengeList, combinations = Some(combins))
+    // create an AuthorizationResponse
+    val theAuthorization = new AuthorizationResponse(identifier = new AcmeIdentifier("example.org"), challenges = challengeList, combinations = combins)
 
-    println("\ntheChallenge: " + theChallenge)
+    println("\t theAuthorization: " + theAuthorization)
 
-    println("\ntheChallenge json: " + Json.toJson(theChallenge))
-
+    println("\t theAuthorization json: " + Json.prettyPrint(Json.toJson(theAuthorization)))
 
     // a recoveryToken response
     val jsRecov = Json.parse( """{"type": "recoveryToken", "token": "a-token"}""")
-    val recov = Json.fromJson[ResponseType](jsRecov).asOpt
+    val recov = Json.fromJson[RecoveryTokenResponse](jsRecov).asOpt
     println("\nrecov: " + recov)
-    jsRecov.validate[ResponseType] match {
-      case s: JsSuccess[ResponseType] => println("\nvalidated ResponseType: " + s.get + "\n")
+    jsRecov.validate[RecoveryTokenResponse] match {
+      case s: JsSuccess[RecoveryTokenResponse] => println("\nvalidated ResponseType: " + s.get + "\n")
       case e: JsError => println("\nError: " + JsError.toFlatJson(e).toString())
     }
 

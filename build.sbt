@@ -1,15 +1,15 @@
 sbtPlugin := true
 
-name := "acme-protocol"
+name := "AcmeProtocol"
 
 organization := "com.kodekutters"
 
 version := "1.0"
 
-scalaVersion := "2.11.5"
+scalaVersion := "2.11.7"
 
 libraryDependencies ++= Seq(
-  "com.nimbusds" % "nimbus-jose-jwt" % "3.8.2",
-  "com.typesafe.play" % "play-json_2.11" % "2.4.0-M2"
+  "com.nimbusds" % "nimbus-jose-jwt" % "4.11",
+  "com.typesafe.play" % "play-json_2.11" % "2.5.0-M1"
 )
 
