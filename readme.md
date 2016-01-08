@@ -12,7 +12,7 @@ For a description of the ACME protocol see the [ACME protocol specification](htt
 the [latest version](https://letsencrypt.github.io/acme-spec/)
 
 This scala **AcmeProtocol** library provides the ACME specification as scala classes to assist developers in 
-using ACME in scala applications.
+building ACME scala clients or as part of a scala application. 
 
 ## Documentation
 
@@ -33,7 +33,7 @@ See also the build.sbt file.
 
 ## Status
 
-This is very much a work in progress.
+This is a work in progress.
 
 Using scala 2.11.7 and java 1.8 SDK.
 

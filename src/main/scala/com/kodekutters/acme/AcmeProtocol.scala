@@ -125,6 +125,8 @@ package object AcmeProtocol {
 
   case object unknownHost extends ErrorCode
 
+  case object invalidEmail extends ErrorCode
+
   case object unknownError extends ErrorCode
 
 
@@ -150,6 +152,7 @@ package object AcmeProtocol {
           case "unauthorized" => unauthorized
           case "unknownHost" => unknownHost
           case "rateLimited" => rateLimited
+          case "invalidEmail" => invalidEmail
           case _ => unknownError
         }
       }
@@ -185,6 +188,7 @@ package object AcmeProtocol {
     tls -> "The server experienced a TLS error during domain verification",
     unauthorized -> "The client lacks sufficient authorization",
     unknownHost -> "The server could not resolve a domain name",
+    invalidEmail -> "The provided email for a registration was invalid",
     unknownError -> "unknownError"
   )
 
@@ -378,7 +382,7 @@ package object AcmeProtocol {
   }
 
   //----------------------------------------------------------------------------
-  //-----------------Challenge Type---------------------------------------------
+  //-----------------Server Challenge Type---------------------------------------------
   //----------------------------------------------------------------------------
 
   val simpleHttps = "simpleHttps"
@@ -605,7 +609,7 @@ package object AcmeProtocol {
   }
 
   //----------------------------------------------------------------------------
-  //-----------------Challenge Response Type------------------------------------
+  //-----------------Challenge Client Response Type------------------------------------
   //----------------------------------------------------------------------------
 
   /**
@@ -690,7 +694,7 @@ package object AcmeProtocol {
   }
 
   //----------------------------------------------------------------------------
-  //-----------------Response Type----------------------------------------------
+  //-----------------Server Response Type----------------------------------------------
   //----------------------------------------------------------------------------
 
   /**
