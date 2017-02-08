@@ -1,5 +1,3 @@
-sbtPlugin := true
-
 name := "AcmeProtocol"
 
 organization := "com.kodekutters"
