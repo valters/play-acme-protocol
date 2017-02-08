@@ -13,7 +13,7 @@ libraryDependencies += "com.typesafe.play" % "play-json_2.11" % "2.5.12"
 libraryDependencies += "io.netty" % "netty-all" % "4.1.8.Final"
 
 // logging
-libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.22"
+libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0"
 
 // unit tests
 libraryDependencies += "org.scalatest" % "scalatest_2.11" % "3.0.1" % "test"

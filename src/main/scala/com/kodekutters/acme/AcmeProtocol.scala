@@ -35,6 +35,8 @@ import play.api.libs.json._
   */
 package object AcmeProtocol {
 
+  val NonceHeader = "Replay-Nonce"
+
   // implicits for reading and writing json JWK objects ..... used in Authorization and Hints
   implicit val jwkWrites = new Writes[JWK] {
     def writes(jwk: JWK) = Json.toJson(jwk.toJSONString)

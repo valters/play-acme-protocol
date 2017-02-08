@@ -10,10 +10,13 @@ import java.nio.charset.StandardCharsets
 import java.net.URI
 import scala.concurrent.Future
 import io.netty.handler.codec.http.HttpHeaders
-import org.slf4j.LoggerFactory
+import com.typesafe.scalalogging.Logger
+import play.api.libs.json.Json
+import play.api.libs.json.JsSuccess
+import play.api.libs.json.JsError
 
 class AcmeHttpClient {
-  private val logger = LoggerFactory.getLogger( getClass )
+  private val logger = Logger[AcmeHttpClient]
 
 
   private val httpCodec = NettyHttpCodec[HttpRequest, FullHttpResponse]()
@@ -26,34 +29,33 @@ class AcmeHttpClient {
     .withTcpNoDelay(true)
     .withTcpKeepAlive(false)
 
-  private def httpGET(uri: URI, headers: Map[String, String] = Map.empty ): Future[(Int, String, HttpHeaders, Option[String])] = {
+  case class Response( val status: Int, body: String, headers: HttpHeaders, nonce: Option[String] ) {
+    def this( resp: FullHttpResponse ) {
+      this( resp.status().code, resp.content().toString(StandardCharsets.UTF_8), resp.headers(), Option( resp.headers().get( AcmeProtocol.NonceHeader ) ) )
+    }
+  }
+
+  private def httpGET(uri: URI, headers: Map[String, String] = Map.empty ): Future[Response] = {
     logger.info( "GET {}", uri )
 
-    httpClient.get(uri, headers).map { resp =>
-      val nonce = Option(resp.headers().get("Replay-Nonce")) // should set to client
-      val r = (resp.getStatus().code, resp.content().toString(StandardCharsets.UTF_8), resp.headers(), nonce)
+    httpClient.get(uri, headers).map { resp: FullHttpResponse =>
+      val r = new Response( resp )
 
       resp.release()
       r
     }
   }
 
-  def getDirectory(endpoint: String ): Future[Unit] = {
+  def getDirectory(endpoint: String ): Future[AcmeProtocol.Directory] = {
     httpGET(new URI(endpoint + "/directory")).map {
-      case (200, body, headers, nonce) =>
-        logger.info( "body {}", body )
-//        val j = JsonParser.parseOpt(body).flatMap(_.extractOpt[AcmePaths])
-//        j.map { paths =>
-//          val newAuth = new URI(paths.`new-authz`)
-//          val newCert = new URI(paths.`new-cert`)
-//          val newReg = new URI(paths.`new-reg`)
-//          val revokeCert = new URI(paths.`revoke-cert`)
-//          val terms = new URI(endpoint + "/terms")
-//          val acme = AcmeClient(keyPair, endpoint, newAuth, newCert, newReg, revokeCert, terms, contacts)
-//          nonce.map(acme.nonce ! _)
-//          acme
-//        }.getOrElse(throw new IllegalArgumentException("Directory index did not contain expected listing"))
-      case (status, body, headers, nonce) =>
+      case Response(200, body, headers, nonce) =>
+        logger.info( "body= {}, nonce= {}", body, nonce.getOrElse("<none>") )
+        val directory = Json.parse( body ).validate[AcmeProtocol.Directory]
+        directory match {
+            case s: JsSuccess[AcmeProtocol.Directory] ⇒ s.get
+            case e: JsError ⇒ throw new IllegalStateException( "Unable to parse json as directory response: "+JsError.toJson( e ).toString() )
+        }
+      case Response(status, body, headers, nonce) =>
         throw new IllegalStateException("Unable to get directory index: " + status + ": " + body)
     }
   }
