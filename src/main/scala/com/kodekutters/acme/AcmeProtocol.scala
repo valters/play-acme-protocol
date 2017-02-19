@@ -42,12 +42,6 @@ package object AcmeProtocol {
 
   val NonceHeader = "Replay-Nonce"
 
-  // implicits for reading and writing json JWK objects ..... used in Authorization and Hints
-  implicit val jwkWrites = new Writes[JWK] {
-    def writes(jwk: JWK) = Json.toJson(jwk.toJSONString)
-  }
-  implicit val jwkReads: Reads[JWK] = JsPath.read[String].map(JWK.parse(_))
-
   //----------------------------------------------------------------------------
   //-----------------supporting elements----------------------------------------
   //----------------------------------------------------------------------------
@@ -268,15 +262,10 @@ package object AcmeProtocol {
   sealed trait StatusCode
 
   case object unknown extends StatusCode
-
   case object pending extends StatusCode
-
   case object processing extends StatusCode
-
   case object valid extends StatusCode
-
   case object invalid extends StatusCode
-
   case object revoked extends StatusCode
 
   object StatusCode {
@@ -864,5 +853,11 @@ package object AcmeProtocol {
 
     implicit val fmt: Format[Directory] = Format(theReads, theWrites)
   }
+
+  // implicits for reading and writing json JWK objects ..... used in Authorization and Hints
+  implicit val jwkWrites = new Writes[JWK] {
+    def writes(jwk: JWK) = Json.toJson(jwk.toJSONString)
+  }
+  implicit val jwkReads: Reads[JWK] = JsPath.read[String].map(JWK.parse(_))
 
 }
