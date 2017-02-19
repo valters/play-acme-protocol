@@ -18,11 +18,11 @@ package com.kodekutters.acme
 
 
 import com.nimbusds.jose.jwk.JWK
-import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json._
+import play.api.libs.json.Json.JsValueWrapper
 
 /**
-  * ACME protocol objects and messages package
+  * Defines ACME protocol objects and messages.
   *
   * Reference: Let's Encrypt project at: https://letsencrypt.org/
   *
@@ -32,8 +32,13 @@ import play.api.libs.json._
   * https://github.com/letsencrypt/acme-spec and
   * https://letsencrypt.github.io/acme-spec/
   *
+  * This contains the DTOs and relevant constants: for JSON parts
+  * please see AcmeJson.
   */
 package object AcmeProtocol {
+
+  /** url fragment */
+  val DirectoryFragment = "/directory"
 
   val NonceHeader = "Replay-Nonce"
 
@@ -207,6 +212,7 @@ package object AcmeProtocol {
   case object authz extends ResourceType { override def toString() = "authz"}
   case object challenge extends ResourceType { override def toString() = "challenge"}
   case object cert extends ResourceType { override def toString() = "cert"}
+  case object key_change extends ResourceType { override def toString() = "key-change"}
 
   object ResourceType {
 
@@ -229,6 +235,7 @@ package object AcmeProtocol {
           case "authz" => authz
           case "challenge" => challenge
           case "cert" => cert
+          case "key-change" => key_change
           case _ => reg
         }
       }
@@ -825,16 +832,22 @@ package object AcmeProtocol {
     *
     * @param directory map of resource -> URI
     */
-  final case class Directory(directory: Map[ResourceType, String]) extends ResponseType
+  final case class Directory(directory: Map[ResourceType, String]) extends ResponseType {
+
+    /** shortcut */
+    def get( key: ResourceType ): String = {
+      directory.get(key).get
+    }
+  }
 
   object Directory {
 
-    import AcmeImplicits._
+    import AcmeImplicits.StringMapToResourceTypeMap
 
     val theReads = new Reads[Directory] {
       def reads(json: JsValue): JsResult[Directory] = {
         JsPath.read[Map[String, String]].reads(json).asOpt match {
-          case Some(dir) => JsSuccess(new Directory(dir)) // AcmeImplicits does the convertion
+          case Some(dir) => JsSuccess(new Directory(dir)) // AcmeImplicits does the conversion
           case None => JsSuccess(new Directory(Map[ResourceType, String]()))  // todo log an error?
         }
       }
