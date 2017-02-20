@@ -75,6 +75,11 @@ object AcmeJson {
     toJson( sign( payload, nonce, keypair ) )
   }
 
+  def encodeRequest( req: AcmeProtocol.AuthorizationRequest, nonce: String, keypair: RSAKey ): JsValue = {
+    val payload = Json.toJson( req ).toString()
+    toJson( sign( payload, nonce, keypair ) )
+  }
+
   /** see https://tools.ietf.org/html/rfc7515#appendix-A.7 */
   case class JwsFlattenedJson( protectedHeader: Base64URL, payload: Base64URL, signature: Base64URL )
 
@@ -86,6 +91,14 @@ object AcmeJson {
             "signature" -> jws.signature.toString() )
       }
     }
+  }
+
+  def parseRegistration(body: String): AcmeProtocol.SimpleRegistrationResponse = {
+    AcmeProtocol.SimpleRegistrationResponse()
+  }
+
+  def parseAuthorization(body: String) = {
+    AcmeProtocol.AuthorizationResponse(AcmeProtocol.AcmeIdentifier())
   }
 
 }

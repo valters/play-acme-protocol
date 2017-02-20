@@ -9,8 +9,9 @@ import scala.concurrent.Future
 import com.kodekutters.acme.netty.{ HttpClient, NettyHttpCodec }
 import com.typesafe.scalalogging.Logger
 
-import io.netty.handler.codec.http.{ FullHttpResponse, HttpHeaders, HttpRequest }
-import io.netty.handler.codec.http.HttpMethod
+import io.netty.handler.codec.http.{ FullHttpResponse, HttpHeaders, HttpMethod, HttpRequest }
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.LinkedBlockingQueue
 
 class AcmeHttpClient {
   private val logger = Logger[AcmeHttpClient]
@@ -27,7 +28,7 @@ class AcmeHttpClient {
 
   private val MimeUrlencoded = "application/x-www-form-urlencoded"
 
-  private var nonce: Option[String] = None
+  private val nonceQueue:BlockingQueue[String] = new LinkedBlockingQueue[String]();
 
   /** extract few fields of interest from the underlying FullHttpResponse */
   case class Response( val status: Int, body: String, headers: HttpHeaders, nonce: Option[String] ) {
@@ -61,18 +62,21 @@ class AcmeHttpClient {
   def getDirectory(endpoint: String ): Future[AcmeProtocol.Directory] = {
     httpGET(new URI(endpoint + AcmeProtocol.DirectoryFragment)).map {
       case Response(200, body, headers, nonce) =>
-        this.nonce = nonce // update state
-        logger.info( "body= {}, nonce= {}", body, nonce.getOrElse("<none>") )
+        logger.info( "body= {}, nonce= {}", body, nonce )
+        putNonce( nonce )
+
         AcmeJson.parseDirectory( body )
       case Response(status, body, headers, nonce) =>
         throw new IllegalStateException("Unable to get directory index: " + status + ": " + body)
     }
   }
 
-  def registration( uri: URI, message: String  ): Future[Unit] = {
+  def registration( uri: URI, message: String  ): Future[AcmeProtocol.SimpleRegistrationResponse] = {
     httpPOST( uri, MimeUrlencoded, message ).flatMap {
         case Response(201, body, headers, nonce) =>
           logger.info("Successfully registered account: {} {} {} {}", uri, body, headers, nonce)
+          putNonce( nonce )
+
           val regURL = new URI(headers.get(HttpHeaders.Names.LOCATION))
           logger.info("  . folow up: {}", regURL )
           findTerms( headers )
@@ -80,14 +84,14 @@ class AcmeHttpClient {
 //            info("[%s] Agreement needs signing", client.endpoint, numTry)
 //            agreement(client, regURL, terms)
 //          }
-          Future.successful( () )
+          Future.successful( AcmeJson.parseRegistration( body ) )
 
         case Response(400, body, headers, nonce) if body contains "urn:acme:error:badNonce" =>
           logger.debug("[{}] Expired nonce used, getting new one", uri)
 //          getNonce(client).flatMap { gotNonce =>
 //            registration(client, numTry) // we don't count this as an error
 //          }
-          Future.successful( () )
+          Future.failed( new IllegalStateException("400 nonce expired" ) )
 
         case Response(409, body, headers, nonce) =>
           logger.info("[%s] We already have an account", uri)
@@ -99,7 +103,7 @@ class AcmeHttpClient {
 //            agreement(client, regURL, terms)
 //          }
 //          termsAndServices.getOrElse(Future.Done)
-          Future.successful( () )
+          Future.failed( new IllegalStateException("409 acct exists" ) )
 
         case Response(status, body, headers, nonce) =>
           logger.error("[{}] Unable to register account after error {} tried {}", uri, status.toString(), body )
@@ -107,8 +111,26 @@ class AcmeHttpClient {
     }
   }
 
+  def authorize( uri: URI, message: String  ): Future[AcmeProtocol.AuthorizationResponse] = {
+    httpPOST( uri, MimeUrlencoded, message ).flatMap {
+        case Response(201, body, headers, nonce) =>
+          logger.info("Successfully registered account: {} {} {} {}", uri, body, headers, nonce)
+          putNonce( nonce )
+          Future.successful( AcmeJson.parseAuthorization( body ) )
+        case Response(status, body, headers, nonce) =>
+          logger.error("[{}] Unable to register account after error {} tried {}", uri, status.toString(), body )
+          throw new IllegalStateException("Unable to register: " + status + ": " + body)
+    }
+  }
+
+  /** blocks until a nonce value is available */
   def getNonce(): String = {
-    nonce.get
+    nonceQueue.take
+  }
+
+  /** insert nonce into queue if we gone one */
+  def putNonce( opt: Option[String]): Unit = {
+    opt.foreach( nonce => nonceQueue.put( nonce ) )
   }
 
   private def findTerms(headers: HttpHeaders): Option[String] = {

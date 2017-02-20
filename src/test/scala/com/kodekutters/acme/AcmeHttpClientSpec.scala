@@ -1,12 +1,13 @@
 package com.kodekutters.acme
 
-import org.scalatest.WordSpec
+import scala.concurrent.{ Future, Promise }
 import scala.concurrent.Await
-import scala.concurrent.duration.DurationInt
-import org.scalatest._
-import scala.concurrent.Promise
-import com.kodekutters.acme.AcmeProtocol.AcmeServer
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.DurationInt
+
+import org.scalatest.{ Matchers, WordSpec }
+
+import com.kodekutters.acme.AcmeProtocol.AcmeServer
 
 class AcmeHttpClientSpec extends WordSpec with Matchers {
 
@@ -15,9 +16,13 @@ class AcmeHttpClientSpec extends WordSpec with Matchers {
   /** test env URL */
   val LetsEncryptStaging = "https://acme-staging.api.letsencrypt.org"
 
+  val TestDomain: String = "unit-test.mydomain.example.org"
+
+
   "Acme Http Client" when {
     val httpClient = new AcmeHttpClient()
     val acmeServer = Promise[AcmeServer]()
+    val acmeRegistration = Promise[AcmeProtocol.SimpleRegistrationResponse]()
 
     "initialized" should {
       "request directory" in {
@@ -33,19 +38,50 @@ class AcmeHttpClientSpec extends WordSpec with Matchers {
       }
 
       "request registration" in {
-        println("+ set on promise" )
-        val fut = acmeServer.future
-        val f = fut.flatMap{ server => {
+        println("+ set on serv promise" )
+        val getServer = acmeServer.future
+        val f: Future[AcmeProtocol.SimpleRegistrationResponse] = getServer.flatMap{ server: AcmeServer => {
           println("+ server received" )
           val req = new AcmeProtocol.RegistrationRequest( Array( "mailto:cert-admin@example.com" ) )
-          val jwsReq = AcmeJson.encodeRequest( req, httpClient.getNonce(), keypair )
+          val nonce = httpClient.getNonce()
+          println("++ dir nonce: " + nonce )
+          val jwsReq = AcmeJson.encodeRequest( req, nonce, keypair )
           httpClient.registration( server.newReg, jwsReq.toString() )
+        } }
+        f.onSuccess{ case response => acmeRegistration.success( response ) }
+
+        Await.result( f, new DurationInt(10).seconds )
+        println("+sleeping till REG end" )
+        sleep( 4000L )
+      }
+
+      "request authorization" in {
+        println("+ set on reg promise" )
+        val getServer = acmeServer.future
+        val f = getServer.flatMap{ server: AcmeServer => {
+
+          val acmeIdent = AcmeProtocol.AcmeIdentifier( value = TestDomain )
+          val fut = acmeRegistration.future
+          val f: Future[AcmeProtocol.AuthorizationResponse] = fut.flatMap{ reg: AcmeProtocol.SimpleRegistrationResponse => {
+
+            println("+ registration received" )
+            val nonce = httpClient.getNonce()
+            println("++ reg nonce: " + nonce )
+
+            val req = new AcmeProtocol.AuthorizationRequest( identifier = acmeIdent )
+            val jwsReq = AcmeJson.encodeRequest( req, nonce, keypair )
+
+            httpClient.authorize( server.newAuthz, jwsReq.toString() )
+          } }
+
+          f
         } }
 
         Await.result( f, new DurationInt(10).seconds )
-        println("+sleeping till end" )
+        println("+sleeping till AUTH end" )
         sleep( 4000L )
       }
+
     }
   }
 

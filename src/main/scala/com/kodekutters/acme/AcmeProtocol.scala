@@ -812,6 +812,8 @@ package object AcmeProtocol {
                                         certificates: Option[String] = None,
                                         error: Option[AcmeErrorMessage] = None) extends ResponseType
 
+  final case class SimpleRegistrationResponse() extends ResponseType
+
   object RegistrationResponse {
     implicit val fmt = Json.format[RegistrationResponse]
   }
@@ -861,9 +863,10 @@ package object AcmeProtocol {
   }
   implicit val jwkReads: Reads[JWK] = JsPath.read[String].map(JWK.parse(_))
 
-  case class AcmeServer( newReg: URI ) {
+  case class AcmeServer( newReg: URI, newAuthz: URI ) {
     def this( directory: AcmeProtocol.Directory ) = {
-      this( new URI( directory.get( AcmeProtocol.new_reg ) ) )
+      this( new URI( directory.get( AcmeProtocol.new_reg ) ),
+          new URI( directory.get( AcmeProtocol.new_authz ) ) )
     }
   }
 
