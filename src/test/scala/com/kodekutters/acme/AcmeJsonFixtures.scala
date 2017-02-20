@@ -3,13 +3,19 @@ package com.kodekutters.acme
 import org.scalatest.{ Matchers, WordSpec }
 
 import com.nimbusds.jose.jwk.RSAKey
+import com.nimbusds.jose.util.Base64URL
+import com.nimbusds.jose.jwk.KeyUse
+import com.nimbusds.jose.JWSAlgorithm
+import play.api.libs.json.Json
+import com.nimbusds.jose.util.Base64
 
 /**
  * This tests only the JSON parsing part of ACME protocol support.
  */
 class AcmeJsonFixtures extends WordSpec with Matchers {
 
-  val keypair: RSAKey = AcmeJson.generateKeyPair()
+  /** fake key for tests */
+  val keypair = AcmeJson.generateKeyPair()
 
   val TestDirectoryBody = """{
   "key-change": "https://acme-staging.api.letsencrypt.org/acme/key-change",
@@ -18,6 +24,8 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
   "new-reg": "https://acme-staging.api.letsencrypt.org/acme/new-reg",
   "revoke-cert": "https://acme-staging.api.letsencrypt.org/acme/revoke-cert"
 }"""
+
+  val TestRegistrationRequest = """{"resource":"new-reg","contact":["mailto:cert-admin@example.com","tel:+12025551212"]}"""
 
 
   "Acme Json Suite" when {
@@ -37,10 +45,30 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
     }
 
     "asked to create JSON" should {
-      "create Request body" in {
+      "create Request body with JWS" in {
         val req = new AcmeProtocol.RegistrationRequest( Array( "mailto:cert-admin@example.com", "tel:+12025551212"  ) )
+        val jreq = Json.toJson( req ).toString()
+        jreq shouldBe TestRegistrationRequest
         val j = AcmeJson.encodeRequest(req, "<nonce>", keypair )
         println( j )
+        val payload = new Base64( (j \ "payload").as[String] ).decodeToString()
+        payload shouldBe TestRegistrationRequest
+
+        val protectedHeader = new Base64( (j \ "protected").as[String] ).decodeToString()
+        println( protectedHeader )
+        val header = Json.parse(protectedHeader)
+
+        val nonce = ( header \ "nonce" ).as[String]
+        nonce shouldBe "<nonce>"
+
+        val alg = ( header \ "alg" ).as[String]
+        alg shouldBe "RS256"
+
+        val kty = ( header \ "jwk" \ "kty" ).as[String]
+        kty shouldBe "RSA"
+
+        val jwkalg = ( header \ "jwk" \ "alg" ).as[String]
+        jwkalg shouldBe "RS256"
       }
     }
   }
