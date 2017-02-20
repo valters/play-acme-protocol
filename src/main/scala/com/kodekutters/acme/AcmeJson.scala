@@ -18,7 +18,7 @@ object AcmeJson {
   val NonceKey = "nonce"
 
   val RSA = "RSA"
-  val RsaKeySize = 512 //4096
+  val RsaKeySize = 2048 //4096
   val RS256: JWSAlgorithm = JWSAlgorithm.RS256
 
   private def keyPairGenerator = {
@@ -69,6 +69,7 @@ object AcmeJson {
     }
   }
 
+  /** Wrap the paylad object into JWS envelope {@code ->} header + signature */
   def encodeRequest( req: AcmeProtocol.RegistrationRequest, nonce: String, keypair: RSAKey ): JsValue = {
     val payload = Json.toJson( req ).toString()
     toJson( sign( payload, nonce, keypair ) )

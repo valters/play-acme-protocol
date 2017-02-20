@@ -20,6 +20,7 @@ package com.kodekutters.acme
 import com.nimbusds.jose.jwk.JWK
 import play.api.libs.json._
 import play.api.libs.json.Json.JsValueWrapper
+import java.net.URI
 
 /**
   * Defines ACME protocol objects and messages.
@@ -859,5 +860,11 @@ package object AcmeProtocol {
     def writes(jwk: JWK) = Json.toJson(jwk.toJSONString)
   }
   implicit val jwkReads: Reads[JWK] = JsPath.read[String].map(JWK.parse(_))
+
+  case class AcmeServer( newReg: URI ) {
+    def this( directory: AcmeProtocol.Directory ) = {
+      this( new URI( directory.get( AcmeProtocol.new_reg ) ) )
+    }
+  }
 
 }

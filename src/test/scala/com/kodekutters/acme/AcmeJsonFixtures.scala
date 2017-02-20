@@ -2,19 +2,15 @@ package com.kodekutters.acme
 
 import org.scalatest.{ Matchers, WordSpec }
 
-import com.nimbusds.jose.jwk.RSAKey
-import com.nimbusds.jose.util.Base64URL
-import com.nimbusds.jose.jwk.KeyUse
-import com.nimbusds.jose.JWSAlgorithm
-import play.api.libs.json.Json
 import com.nimbusds.jose.util.Base64
+
+import play.api.libs.json.Json
 
 /**
  * This tests only the JSON parsing part of ACME protocol support.
  */
 class AcmeJsonFixtures extends WordSpec with Matchers {
 
-  /** fake key for tests */
   val keypair = AcmeJson.generateKeyPair()
 
   val TestDirectoryBody = """{
@@ -29,7 +25,6 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
 
 
   "Acme Json Suite" when {
-    val client = new AcmeHttpClient()
 
     "asked to parse JSON" should {
       "parse Directory body" in {
