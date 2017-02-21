@@ -120,5 +120,8 @@ case class HttpClient[T <: HttpObject](codec: NettyHttpCodec[HttpRequest, T] = N
     write(new URI(proto + "://" + whereTo._1 + ":" + whereTo._2), req)
   }
 
+  def shutdown() = {
+    Netty.eventLoop.shutdownGracefully()
+  }
 }
 

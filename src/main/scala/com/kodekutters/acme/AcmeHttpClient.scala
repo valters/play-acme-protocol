@@ -28,10 +28,22 @@ class AcmeHttpClient {
 
   private val MimeUrlencoded = "application/x-www-form-urlencoded"
 
+  private val HeaderLink = "Link"
+
   private val nonceQueue:BlockingQueue[String] = new LinkedBlockingQueue[String]();
 
+  /** blocks until a nonce value is available */
+  def getNonce(): String = {
+    nonceQueue.take
+  }
+
+  /** insert nonce into queue if we gone one */
+  def putNonce( opt: Option[String]): Unit = {
+    opt.foreach( nonce => nonceQueue.put( nonce ) )
+  }
+
   /** extract few fields of interest from the underlying FullHttpResponse */
-  case class Response( val status: Int, body: String, headers: HttpHeaders, nonce: Option[String] ) {
+  final case class Response( val status: Int, body: String, headers: HttpHeaders, nonce: Option[String] ) {
     def this( resp: FullHttpResponse ) {
       this( resp.status().code, resp.content().toString(StandardCharsets.UTF_8), resp.headers(), Option( resp.headers().get( AcmeProtocol.NonceHeader ) ) )
     }
@@ -43,6 +55,7 @@ class AcmeHttpClient {
 
     httpClient.get( uri, headers ).map { resp: FullHttpResponse =>
       val r = new Response( resp )
+      putNonce( r.nonce )
 
       resp.release()
       r
@@ -53,6 +66,7 @@ class AcmeHttpClient {
   private def httpPOST( uri: URI, mime: String, bytes: String ): Future[Response] = {
     httpClient.post(uri, mime, bytes.getBytes(StandardCharsets.UTF_8).toSeq, Map.empty, HttpMethod.POST).map { resp =>
       val r = new Response(resp)
+      putNonce( r.nonce )
 
       resp.release()
       r
@@ -63,7 +77,6 @@ class AcmeHttpClient {
     httpGET(new URI(endpoint + AcmeProtocol.DirectoryFragment)).map {
       case Response(200, body, headers, nonce) =>
         logger.info( "body= {}, nonce= {}", body, nonce )
-        putNonce( nonce )
 
         AcmeJson.parseDirectory( body )
       case Response(status, body, headers, nonce) =>
@@ -75,16 +88,12 @@ class AcmeHttpClient {
     httpPOST( uri, MimeUrlencoded, message ).flatMap {
         case Response(201, body, headers, nonce) =>
           logger.info("Successfully registered account: {} {} {} {}", uri, body, headers, nonce)
-          putNonce( nonce )
 
-          val regURL = new URI(headers.get(HttpHeaders.Names.LOCATION))
-          logger.info("  . folow up: {}", regURL )
-          findTerms( headers )
-//          getTerms(client, headers).map { terms =>
-//            info("[%s] Agreement needs signing", client.endpoint, numTry)
-//            agreement(client, regURL, terms)
-//          }
-          Future.successful( AcmeJson.parseRegistration( body ) )
+          val regUrl = new URI(headers.get(HttpHeaders.Names.LOCATION))
+          logger.info("  . folow up: {}", regUrl )
+          val termsUrl = findTerms( headers ).get
+          logger.info("  . terms of service: {}", termsUrl )
+          Future.successful( AcmeProtocol.SimpleRegistrationResponse( regUrl, termsUrl ) )
 
         case Response(400, body, headers, nonce) if body contains "urn:acme:error:badNonce" =>
           logger.debug("[{}] Expired nonce used, getting new one", uri)
@@ -94,7 +103,7 @@ class AcmeHttpClient {
           Future.failed( new IllegalStateException("400 nonce expired" ) )
 
         case Response(409, body, headers, nonce) =>
-          logger.info("[%s] We already have an account", uri)
+          logger.info("[{}] We already have an account", uri)
 //          val termsAndServices = for {
 //            regURL <- Option(headers.get(HttpHeaders.Names.LOCATION)).map(new URI(_))
 //            terms <- findTerms(headers)
@@ -114,32 +123,49 @@ class AcmeHttpClient {
   def authorize( uri: URI, message: String  ): Future[AcmeProtocol.AuthorizationResponse] = {
     httpPOST( uri, MimeUrlencoded, message ).flatMap {
         case Response(201, body, headers, nonce) =>
-          logger.info("Successfully registered account: {} {} {} {}", uri, body, headers, nonce)
-          putNonce( nonce )
+          logger.info("Successfully authorized account: {} {} {} {}", uri, body, headers, nonce)
           Future.successful( AcmeJson.parseAuthorization( body ) )
         case Response(status, body, headers, nonce) =>
-          logger.error("[{}] Unable to register account after error {} tried {}", uri, status.toString(), body )
-          throw new IllegalStateException("Unable to register: " + status + ": " + body)
+          logger.error("[{}] Unable to authorized account after error {} tried {}", uri, status.toString(), body )
+          throw new IllegalStateException("Unable to authorize: " + status + ": " + body)
     }
   }
 
-  /** blocks until a nonce value is available */
-  def getNonce(): String = {
-    nonceQueue.take
+  /** accept registration: pass the terms of service url in reg indicating agreement
+   *  @param uri regURL returned as Location by new-reg call, for example "https://acme-staging.api.letsencrypt.org/acme/reg/930540"
+   *  @param message registration message wrapped as JWS
+   */
+  def agreement( uri: URI, message: String ): Future[AcmeProtocol.RegistrationResponse] = {
+    logger.info("[{}] Handling agreement", uri)
+      httpPOST( uri, MimeUrlencoded, message ).flatMap {
+        case Response(code, body, headers, nonce) if code < 250 =>
+          logger.info("[{}] Successfully signed Terms of Service: {} {} {} {}", uri, body, headers, nonce)
+          Future.successful( AcmeProtocol.RegistrationResponse( null ) )
+
+        case Response(400, body, headers, nonce) if body contains "urn:acme:error:badNonce" =>
+          logger.error("[{}] Expired nonce used, getting new one: {} {} {} {}", uri, body, headers, nonce)
+          throw new IllegalStateException("Unable to sign agreement: error 400: " + body)
+
+        case Response(status, body, headers, nonce) =>
+          logger.error("[{}] Unable to sign Terms of Service: {} {} {} {}", uri, body, headers, nonce)
+          throw new IllegalStateException("Unable to sign agreement: " + status + ": " + body)
+      }
   }
 
-  /** insert nonce into queue if we gone one */
-  def putNonce( opt: Option[String]): Unit = {
-    opt.foreach( nonce => nonceQueue.put( nonce ) )
-  }
-
+  /** locate the terms-of-service link and get the URI */
   private def findTerms(headers: HttpHeaders): Option[String] = {
     import scala.collection.JavaConverters.asScalaBufferConverter
 
-    headers.getAll("Link").asScala.foreach{ item =>  println( s"Link: $item" ) }
+    val links = headers.getAll(HeaderLink).asScala
 
-    None
+    links.foreach{ item =>  println( s"Link: $item" ) }
+    links.find(_.endsWith(";rel=\"terms-of-service\""))
+      .flatMap(_.split(">").headOption.map(_.replaceAll("^<", "")))
   }
 
+  /** ask Netty to exit its event loops to allow VM to wrap up threads and end */
+  def shutdown() = {
+    httpClient.shutdown()
+  }
 
 }

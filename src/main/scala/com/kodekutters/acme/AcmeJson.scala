@@ -5,15 +5,91 @@ import java.security.interfaces.{ RSAPrivateKey, RSAPublicKey }
 
 import com.nimbusds.jose.{ JWSAlgorithm, JWSHeader, JWSObject, JWSSigner, Payload }
 import com.nimbusds.jose.crypto.RSASSASigner
-import com.nimbusds.jose.jwk.RSAKey
+import com.nimbusds.jose.jwk.{ JWK, RSAKey }
 import com.nimbusds.jose.util.Base64URL
 
-import play.api.libs.json.{ JsError, JsSuccess, JsValue, Json, Writes }
+import play.api.libs.json.{ Format, JsError, JsPath, JsResult, JsString, JsSuccess, JsValue, Json }
+import play.api.libs.json.{ Reads, Writes }
+import play.api.libs.json.Json.JsValueWrapper
+
+/**
+ * Implicit JSON converters
+ */
+object AcmeImplicits {
+  implicit def StringMapToResourceTypeMap(value: Map[String, String]): Map[AcmeProtocol.ResourceType, String] = {
+    val resMap = scala.collection.mutable.Map[AcmeProtocol.ResourceType, String]()
+    value.foreach {
+      case (k, v) => resMap += AcmeProtocol.ResourceType.fromString(k) -> v.asInstanceOf[String]
+    }
+    resMap.toMap
+  }
+
+  val dirReads = new Reads[AcmeProtocol.Directory] {
+    def reads(json: JsValue): JsResult[AcmeProtocol.Directory] = {
+      JsPath.read[Map[String, String]].reads(json).asOpt match {
+        case Some(dir) => JsSuccess(new AcmeProtocol.Directory(dir))
+        case None => JsSuccess(new AcmeProtocol.Directory(Map[AcmeProtocol.ResourceType, String]()))  // todo log an error?
+      }
+    }
+  }
+
+  val dirWrites = new Writes[AcmeProtocol.Directory] {
+    def writes(dir: AcmeProtocol.Directory) = {
+      Json.obj(dir.directory.map { case (k, v) =>
+        val entry: (String, JsValueWrapper) = k.toString -> JsString(v.asInstanceOf[String])
+        entry
+      }.toSeq: _*)
+    }
+  }
+
+  implicit val fmtDir: Format[AcmeProtocol.Directory] = Format(dirReads, dirWrites)
+
+  // implicits for reading and writing json JWK objects ..... used in Authorization and Hints
+  implicit val jwkWrites = new Writes[JWK] {
+    def writes(jwk: JWK) = Json.toJson(jwk.toJSONString)
+  }
+  implicit val jwkReads: Reads[JWK] = JsPath.read[String].map(JWK.parse(_))
+
+  implicit val fmtAcmeSignature = Json.format[AcmeProtocol.AcmeSignature]
+
+  implicit val fmtRecoveryKeyClient = Json.format[AcmeProtocol.RecoveryKeyClient]
+  implicit val fmtRecoveryKeyServer = Json.format[AcmeProtocol.RecoveryKeyServer]
+
+  implicit val fmtRegistrationReq = Json.format[AcmeProtocol.RegistrationRequest]
+  implicit val fmtRegistationResp = Json.format[AcmeProtocol.RegistrationResponse]
+
+  val crtReads = new Reads[AcmeProtocol.ChallengeResponseType] {
+    def reads(json: JsValue) = {
+      (json \ "type").asOpt[String] match {
+        case Some(msgType) =>
+          msgType match {
+            case AcmeProtocol.simpleHttps => Json.format[AcmeProtocol.SimpleHTTPSResponse].reads(json)
+            case AcmeProtocol.dvsni => Json.format[AcmeProtocol.DVSNIResponse].reads(json)
+            case AcmeProtocol.dns => Json.format[AcmeProtocol.DNSResponse].reads(json)
+            case AcmeProtocol.proofOfPossession => Json.format[AcmeProtocol.ProofOfPossessionResponse].reads(json)
+            case _ => JsError("could not read jsValue: " + json + " into a ResponseType")
+          }
+        case None => JsError("could not read jsValue: " + json + " into a ResponseType")
+      }
+    }
+  }
+
+  val crtWrites = Writes[AcmeProtocol.ChallengeResponseType] {
+    case x: AcmeProtocol.SimpleHTTPSResponse => Json.format[AcmeProtocol.SimpleHTTPSResponse].writes(x)
+    case x: AcmeProtocol.DVSNIResponse => Json.format[AcmeProtocol.DVSNIResponse].writes(x)
+    case x: AcmeProtocol.DNSResponse => Json.format[AcmeProtocol.DNSResponse].writes(x)
+    case x: AcmeProtocol.ProofOfPossessionResponse => Json.format[AcmeProtocol.ProofOfPossessionResponse].writes(x)
+  }
+
+  implicit val fmtChallengeResponseType: Format[AcmeProtocol.ChallengeResponseType] = Format(crtReads, crtWrites)
+
+}
 
 /**
  * Implements JSON reads and writes for AcmeProtocol.
  */
 object AcmeJson {
+  import AcmeImplicits._
 
   val NonceKey = "nonce"
 
@@ -56,6 +132,10 @@ object AcmeJson {
     jwsObject
   }
 
+  def toJson( reg: AcmeProtocol.RegistrationRequest ): JsValue = {
+    Json.toJson(reg)
+  }
+
   def toJson( jwsObject: JWSObject ): JsValue = {
     val jws = JwsFlattenedJson( jwsObject.getHeader.toBase64URL(), jwsObject.getPayload.toBase64URL(), jwsObject.getSignature() )
     Json.toJson( jws )( implicitly( JwsFlattenedJson.writesJson ) )
@@ -93,12 +173,9 @@ object AcmeJson {
     }
   }
 
-  def parseRegistration(body: String): AcmeProtocol.SimpleRegistrationResponse = {
-    AcmeProtocol.SimpleRegistrationResponse()
-  }
-
   def parseAuthorization(body: String) = {
     AcmeProtocol.AuthorizationResponse(AcmeProtocol.AcmeIdentifier())
   }
 
 }
+

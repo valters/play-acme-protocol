@@ -13,6 +13,8 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
 
   val keypair = AcmeJson.generateKeyPair()
 
+  val TestContacts = Array( "mailto:cert-admin@example.com", "tel:+12025551212"  )
+
   val TestDirectoryBody = """{
   "key-change": "https://acme-staging.api.letsencrypt.org/acme/key-change",
   "new-authz": "https://acme-staging.api.letsencrypt.org/acme/new-authz",
@@ -23,6 +25,11 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
 
   val TestRegistrationRequest = """{"resource":"new-reg","contact":["mailto:cert-admin@example.com","tel:+12025551212"]}"""
 
+  val TestAuthorizationRequest = """{"resource":"new-authz","identifier":{"type":"dns","value":"unit-test.domain"}}"""
+
+  val TermsOfService = "https://letsencrypt.org/documents/LE-SA-v1.1.1-August-1-2016.pdf"
+
+  val TestRegistrationRequestWithAgreement = """{"resource":"reg","agreement":"https://letsencrypt.org/documents/LE-SA-v1.1.1-August-1-2016.pdf"}"""
 
   "Acme Json Suite" when {
 
@@ -40,9 +47,9 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
     }
 
     "asked to create JSON" should {
-      "create Request body with JWS" in {
-        val req = new AcmeProtocol.RegistrationRequest( Array( "mailto:cert-admin@example.com", "tel:+12025551212"  ) )
-        val jreq = Json.toJson( req ).toString()
+      "create Registration req with JWS" in {
+        val req = new AcmeProtocol.RegistrationRequest( TestContacts )
+        val jreq = AcmeJson.toJson( req ).toString()
         jreq shouldBe TestRegistrationRequest
         val j = AcmeJson.encodeRequest(req, "<nonce>", keypair )
         println( j )
@@ -64,6 +71,29 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
 
         val jwkalg = ( header \ "jwk" \ "alg" ).as[String]
         jwkalg shouldBe "RS256"
+      }
+
+      "create Registration+Agreement req with JWS" in {
+        val req = new AcmeProtocol.RegistrationRequest( resource = AcmeProtocol.reg, agreement = Some(TermsOfService) )
+        val jreq = AcmeJson.toJson( req ).toString()
+        jreq shouldBe TestRegistrationRequestWithAgreement
+        val j = AcmeJson.encodeRequest(req, "<nonce>", keypair )
+        println( j )
+        val payload = new Base64( (j \ "payload").as[String] ).decodeToString()
+        payload shouldBe TestRegistrationRequestWithAgreement
+
+      }
+
+      "create Authorization req with JWS" in {
+        val req = AcmeProtocol.AuthorizationRequest( identifier = AcmeProtocol.AcmeIdentifier( value = "unit-test.domain" ) )
+        val jreq = Json.toJson( req ).toString()
+        jreq shouldBe TestAuthorizationRequest
+
+        val j = AcmeJson.encodeRequest(req, "<nonce>", keypair )
+        println( j )
+        val payload = new Base64( (j \ "payload").as[String] ).decodeToString()
+        payload shouldBe TestAuthorizationRequest
+
       }
     }
   }
