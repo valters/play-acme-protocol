@@ -29,20 +29,6 @@ import javax.security.cert.X509Certificate
 package object Util {
 
   /**
-   * test if the current running java is at least version n.
-   * @param n the string representing the java version number to test (e.g. "1.8")
-   * @return true if n >= the current running java version, false for anything else.
-   */
-  def isJavaAtLeast(n: String): Boolean = {
-    try {
-      n.toFloat >= System.getProperty("java.version").substring(0, 3).toFloat
-    }
-    catch {
-      case e: Exception => false
-    }
-  }
-
-  /**
    * pad the input string with "=" and "=="
    * @param x the input string to pad
    * @return the input string padded with "=" and "=="
