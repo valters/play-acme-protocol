@@ -5,3 +5,7 @@ target
 /.project
 /.settings
 /bin/
+/.ensime
+/.ensime_cache/
+/.cache-main
+/.cache-tests
