@@ -15,7 +15,7 @@ import play.api.libs.json.Json.JsValueWrapper
 /**
  * Implicit JSON converters
  */
-object AcmeImplicits {
+object AcmeJsonImplicits {
   implicit def StringMapToResourceTypeMap(value: Map[String, String]): Map[AcmeProtocol.ResourceType, String] = {
     val resMap = scala.collection.mutable.Map[AcmeProtocol.ResourceType, String]()
     value.foreach {
@@ -58,13 +58,37 @@ object AcmeImplicits {
   implicit val fmtRegistrationReq = Json.format[AcmeProtocol.RegistrationRequest]
   implicit val fmtRegistationResp = Json.format[AcmeProtocol.RegistrationResponse]
 
+    val challengeTypeReads = new Reads[AcmeProtocol.ChallengeType] {
+      def reads(json: JsValue) = {
+        (json \ "type").asOpt[String] match {
+          case None => JsError("could not read jsValue: " + json + " into a ChallengeType")
+          case Some(msgType) => msgType match {
+            case AcmeProtocol.simple_http => Json.format[AcmeProtocol.ChallengeHttp].reads(json)
+            case AcmeProtocol.tls_sni => Json.format[AcmeProtocol.ChallengeTlsSni].reads(json)
+            case AcmeProtocol.dns => Json.format[AcmeProtocol.ChallengeDns].reads(json)
+            case AcmeProtocol.proofOfPossession => Json.format[AcmeProtocol.ChallengeProofOfPossession].reads(json)
+            case _ => JsError("could not process jsValue: " + json + " into a ChallengeType")
+          }
+        }
+      }
+    }
+
+    val challengeTypeWrites = Writes[AcmeProtocol.ChallengeType] {
+      case x: AcmeProtocol.ChallengeHttp => Json.format[AcmeProtocol.ChallengeHttp].writes(x)
+      case x: AcmeProtocol.ChallengeTlsSni => Json.format[AcmeProtocol.ChallengeTlsSni].writes(x)
+      case x: AcmeProtocol.ChallengeDns => Json.format[AcmeProtocol.ChallengeDns].writes(x)
+      case x: AcmeProtocol.ChallengeProofOfPossession => Json.format[AcmeProtocol.ChallengeProofOfPossession].writes(x)
+    }
+
+    implicit val fmtChallengeType: Format[AcmeProtocol.ChallengeType] = Format(challengeTypeReads, challengeTypeWrites)
+
   val crtReads = new Reads[AcmeProtocol.ChallengeResponseType] {
     def reads(json: JsValue) = {
       (json \ "type").asOpt[String] match {
         case Some(msgType) =>
           msgType match {
-            case AcmeProtocol.simpleHttps => Json.format[AcmeProtocol.SimpleHTTPSResponse].reads(json)
-            case AcmeProtocol.dvsni => Json.format[AcmeProtocol.DVSNIResponse].reads(json)
+            case AcmeProtocol.simple_http => Json.format[AcmeProtocol.SimpleHTTPSResponse].reads(json)
+            case AcmeProtocol.tls_sni => Json.format[AcmeProtocol.DVSNIResponse].reads(json)
             case AcmeProtocol.dns => Json.format[AcmeProtocol.DNSResponse].reads(json)
             case AcmeProtocol.proofOfPossession => Json.format[AcmeProtocol.ProofOfPossessionResponse].reads(json)
             case _ => JsError("could not read jsValue: " + json + " into a ResponseType")
@@ -83,13 +107,15 @@ object AcmeImplicits {
 
   implicit val fmtChallengeResponseType: Format[AcmeProtocol.ChallengeResponseType] = Format(crtReads, crtWrites)
 
+  implicit val fmtAuthorizationResponse = Json.format[AcmeProtocol.AuthorizationResponse]
+
 }
 
 /**
  * Implements JSON reads and writes for AcmeProtocol.
  */
 object AcmeJson {
-  import AcmeImplicits._
+  import AcmeJsonImplicits._
 
   val NonceKey = "nonce"
 
@@ -144,8 +170,16 @@ object AcmeJson {
   def parseDirectory( jsonBody: String ): AcmeProtocol.Directory = {
     val directory = Json.parse( jsonBody ).validate[AcmeProtocol.Directory]
     directory match {
-        case s: JsSuccess[AcmeProtocol.Directory] ⇒ s.get
-        case e: JsError ⇒ throw new IllegalStateException( "Unable to parse json as directory response: "+JsError.toJson( e ).toString() )
+      case s: JsSuccess[AcmeProtocol.Directory] ⇒ s.get
+      case e: JsError ⇒ throw new IllegalStateException( "Unable to parse json as directory response: "+JsError.toJson( e ).toString() )
+    }
+  }
+
+  def parseAuthorization( jsonBody: String ): AcmeProtocol.AuthorizationResponse = {
+    val authz = Json.parse( jsonBody ).validate[AcmeProtocol.AuthorizationResponse]
+    authz match {
+      case s: JsSuccess[AcmeProtocol.AuthorizationResponse] ⇒ s.get
+      case e: JsError ⇒ throw new IllegalStateException( "Unable to parse json as auth response: "+JsError.toJson( e ).toString() )
     }
   }
 
@@ -173,8 +207,18 @@ object AcmeJson {
     }
   }
 
-  def parseAuthorization(body: String) = {
-    AcmeProtocol.AuthorizationResponse(AcmeProtocol.AcmeIdentifier())
+  def parseChallenge( jsonBody: String): AcmeProtocol.ChallengeType = {
+    val authz = Json.parse( jsonBody ).validate[AcmeProtocol.ChallengeType]
+    authz match {
+      case s: JsSuccess[AcmeProtocol.ChallengeType] ⇒ s.get
+      case e: JsError ⇒ throw new IllegalStateException( "Unable to parse json as challenge: "+JsError.toJson( e ).toString() )
+    }
+  }
+
+  def findHttpChallenge( challenges: List[AcmeProtocol.ChallengeType] ): Option[AcmeProtocol.ChallengeHttp] = {
+      challenges.find(_.`type` == AcmeProtocol.simple_http).map { challenge =>
+        challenge.asInstanceOf[AcmeProtocol.ChallengeHttp]
+      }
   }
 
 }

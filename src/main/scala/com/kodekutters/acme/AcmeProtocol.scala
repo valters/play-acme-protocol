@@ -28,11 +28,10 @@ import play.api.libs.json.{ Format, JsError, JsPath, JsResult, JsString, JsSucce
   *
   * Reference: Let's Encrypt project at: https://letsencrypt.org/
   *
-  * based on draft-barnes-acme-04 (8 January 2016)
+  * based on draft-ietf-acme-acme-04 (October 31, 2016)
   *
   * For the ACME protocol specification see:
-  * https://github.com/letsencrypt/acme-spec and
-  * https://letsencrypt.github.io/acme-spec/
+  * https://tools.ietf.org/html/draft-ietf-acme-acme-04
   *
   * This contains the DTOs and relevant constants: for JSON parts
   * please see AcmeJson.
@@ -374,46 +373,19 @@ package object AcmeProtocol {
   //-----------------Server Challenge Type---------------------------------------------
   //----------------------------------------------------------------------------
 
-  val simpleHttps = "simpleHttps"
-  val dvsni = "dvsni"
-  val dns = "dns"
+  val simple_http = "http-01"
+  val tls_sni = "tls-sni-01"
+  val dns = "dns-01"
   val proofOfPossession = "proofOfPossession"
 
   // acme challenge types set
-  val challengeTypeSet = Set(simpleHttps, dvsni, dns, proofOfPossession)
+  val challengeTypeSet = Set(simple_http, tls_sni, dns, proofOfPossession)
 
   /**
     * a challenge type message sent by the CA server
     */
   sealed trait ChallengeType {
     val `type`: String
-  }
-
-  object ChallengeType {
-
-    val challengeTypeReads = new Reads[ChallengeType] {
-      def reads(json: JsValue) = {
-        (json \ "type").asOpt[String] match {
-          case None => JsError("could not read jsValue: " + json + " into a ChallengeType")
-          case Some(msgType) => msgType match {
-            case `simpleHttps` => Json.format[ChallengeSimpleHTTPS].reads(json)
-            case `dvsni` => Json.format[ChallengeDVSNI].reads(json)
-            case `dns` => Json.format[ChallengeDNS].reads(json)
-            case `proofOfPossession` => Json.format[ChallengeProofOfPossession].reads(json)
-            case _ => JsError("could not process jsValue: " + json + " into a ChallengeType")
-          }
-        }
-      }
-    }
-
-    val challengeTypeWrites = Writes[ChallengeType] {
-      case x: ChallengeSimpleHTTPS => Json.format[ChallengeSimpleHTTPS].writes(x)
-      case x: ChallengeDVSNI => Json.format[ChallengeDVSNI].writes(x)
-      case x: ChallengeDNS => Json.format[ChallengeDNS].writes(x)
-      case x: ChallengeProofOfPossession => Json.format[ChallengeProofOfPossession].writes(x)
-    }
-
-    implicit val fmt: Format[ChallengeType] = Format(challengeTypeReads, challengeTypeWrites)
   }
 
   /**
@@ -427,8 +399,8 @@ package object AcmeProtocol {
     * @param validated The time at which this challenge was completed by the server,
     * @param error possible error
     */
-  final case class ChallengeSimpleHTTPS(`type`: String = simpleHttps,
-                                        uri: String, token: String, tls: Boolean = true,
+  final case class ChallengeHttp(`type`: String = simple_http,
+                                        uri: String, token: String, tls: Option[Boolean] = Some(false),
                                         status: Option[StatusCode] = None, validated: Option[String] = None,
                                         error: Option[AcmeErrorMessage] = None) extends ChallengeType
 
@@ -442,7 +414,7 @@ package object AcmeProtocol {
     * @param validated The time at which this challenge was completed by the server,
     * @param error possible error
     */
-  final case class ChallengeDVSNI(`type`: String = dvsni, uri: String, token: String,
+  final case class ChallengeTlsSni(`type`: String = tls_sni, uri: String, token: String,
                                   status: Option[StatusCode] = None, validated: Option[String] = None,
                                   error: Option[AcmeErrorMessage] = None) extends ChallengeType
 
@@ -456,7 +428,7 @@ package object AcmeProtocol {
     * @param validated The time at which this challenge was completed by the server,
     * @param error possible error
     */
-  final case class ChallengeDNS(`type`: String = dns, uri: String, token: String,
+  final case class ChallengeDns(`type`: String = dns, uri: String, token: String,
                                 status: Option[StatusCode] = None, validated: Option[String] = None,
                                 error: Option[AcmeErrorMessage] = None) extends ChallengeType
 
@@ -603,7 +575,7 @@ package object AcmeProtocol {
     * @param tls  Transport Layer Security (TLS) option
     * @param error possible error
     */
-  final case class SimpleHTTPSResponse(`type`: String = simpleHttps, tls: Option[Boolean] = Some(true),
+  final case class SimpleHTTPSResponse(`type`: String = simple_http, tls: Option[Boolean] = Some(true),
                                        error: Option[AcmeErrorMessage] = None) extends ChallengeResponseType
 
   /**
@@ -613,7 +585,7 @@ package object AcmeProtocol {
     * @param validation The JWS object computed with the validation object and the account key
     * @param error possible error
     */
-  final case class DVSNIResponse(`type`: String = dvsni, validation: JWK,
+  final case class DVSNIResponse(`type`: String = tls_sni, validation: JWK,
                                  error: Option[AcmeErrorMessage] = None) extends ChallengeResponseType
 
   /**
@@ -736,10 +708,6 @@ package object AcmeProtocol {
     def this(identifier: AcmeIdentifier, challenges: List[ChallengeType], combinations: Array[Array[Int]]) =
       this(identifier, challenges, Some(combinations), Some(pending), None, None)
 
-  }
-
-  object AuthorizationResponse {
-    implicit val fmt = Json.format[AuthorizationResponse]
   }
 
   /**

@@ -31,6 +31,55 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
 
   val TestRegistrationRequestWithAgreement = """{"resource":"reg","agreement":"https://letsencrypt.org/documents/LE-SA-v1.1.1-August-1-2016.pdf"}"""
 
+  val TestSniChallenge = """    {
+      "type": "tls-sni-01",
+      "status": "pending",
+      "uri": "https://acme-staging.api.letsencrypt.org/acme/challenge/zgy5u_aCgUg6A0o6QzwVejSStjnX7qpt8L7kAmc4SpI/26567983",
+      "token": "1YonOX7Hg66rwryDwYeyHQCUlnkLjZoTR4B7UXLF6Os"
+    }
+"""
+
+  val TestAuthorizationChallenge = """{
+  "identifier": {
+    "type": "dns",
+    "value": "unit-test.mydomain.example.org"
+  },
+  "status": "pending",
+  "expires": "2017-02-28T09:05:29.382845812Z",
+  "challenges": [
+    {
+      "type": "http-01",
+      "status": "pending",
+      "uri": "https://acme-staging.api.letsencrypt.org/acme/challenge/zgy5u_aCgUg6A0o6QzwVejSStjnX7qpt8L7kAmc4SpI/26567981",
+      "token": "64i9fs15NaaD-y09SAdySPJkMXc7chV9w2jCOMca7Fg"
+    },
+    {
+      "type": "dns-01",
+      "status": "pending",
+      "uri": "https://acme-staging.api.letsencrypt.org/acme/challenge/zgy5u_aCgUg6A0o6QzwVejSStjnX7qpt8L7kAmc4SpI/26567982",
+      "token": "I1kxljrIAGz3nUm2YHzPgrMvwKkAHg9qZMWXJx9QI9E"
+    },
+    {
+      "type": "tls-sni-01",
+      "status": "pending",
+      "uri": "https://acme-staging.api.letsencrypt.org/acme/challenge/zgy5u_aCgUg6A0o6QzwVejSStjnX7qpt8L7kAmc4SpI/26567983",
+      "token": "1YonOX7Hg66rwryDwYeyHQCUlnkLjZoTR4B7UXLF6Os"
+    }
+  ],
+  "combinations": [
+    [
+      0
+    ],
+    [
+      1
+    ],
+    [
+      2
+    ]
+  ]
+}"""
+
+
   "Acme Json Suite" when {
 
     "asked to parse JSON" should {
@@ -43,6 +92,22 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
         d.get(AcmeProtocol.key_change) shouldBe "https://acme-staging.api.letsencrypt.org/acme/key-change"
       }
 
+      "parse tls-sni challenge" in {
+        val challenge: AcmeProtocol.ChallengeType = AcmeJson.parseChallenge( TestSniChallenge )
+        challenge.`type` shouldBe "tls-sni-01"
+        val tls = challenge.asInstanceOf[AcmeProtocol.ChallengeTlsSni]
+        tls.status.get shouldBe AcmeProtocol.pending
+        tls.token shouldBe "1YonOX7Hg66rwryDwYeyHQCUlnkLjZoTR4B7UXLF6Os"
+      }
+
+      "parse Authorization body" in {
+        val ares: AcmeProtocol.AuthorizationResponse = AcmeJson.parseAuthorization( TestAuthorizationChallenge )
+        val challenge = AcmeJson.findHttpChallenge( ares.challenges )
+        challenge should not be (None)
+        val http_challenge: AcmeProtocol.ChallengeHttp = challenge.get
+        http_challenge.token shouldBe "64i9fs15NaaD-y09SAdySPJkMXc7chV9w2jCOMca7Fg"
+        http_challenge.uri shouldBe "https://acme-staging.api.letsencrypt.org/acme/challenge/zgy5u_aCgUg6A0o6QzwVejSStjnX7qpt8L7kAmc4SpI/26567981"
+      }
 
     }
 

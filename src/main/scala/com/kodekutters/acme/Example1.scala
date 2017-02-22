@@ -11,10 +11,10 @@ import play.api.libs.json.{JsError, JsSuccess, Json}
 /**
  * just a basic example
  */
-
 object Example1 {
+  import AcmeJsonImplicits._
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
 
     // json representation of an Authorization Request
     val jsVal = Json.parse(""" {"resource":"new_authz","identifier": {"type": "dns", "value": "example.org"}} """.stripMargin)
@@ -33,7 +33,7 @@ object Example1 {
 
     // a JWK object, a RSAKey
     val rsakey = new RSAKey(new Base64URL("abc"), new Base64URL("def"), KeyUse.SIGNATURE,
-      null, JWSAlgorithm.RS256, "5678", null, null, null)
+      null, JWSAlgorithm.RS256, "5678", null, null, null, null)
 
     // a AcmeSignature
     val sig = new AcmeSignature(nonce = newNonce,
@@ -48,7 +48,7 @@ object Example1 {
     println("\njson authReq: " + Json.prettyPrint(Json.toJson(authReq)))
 
     // the list of challenges
-    val challengeList = List(new ChallengeSimpleHTTPS(uri = "some-uri", token = newToken), new ChallengeDNS(uri = "some-uri", token = newToken))
+    val challengeList = List(new ChallengeHttp(uri = "some-uri", token = newToken), new ChallengeDns(uri = "some-uri", token = newToken))
 
     // the challenges combinations
     val combins = Array.ofDim[Int](2, 2)
