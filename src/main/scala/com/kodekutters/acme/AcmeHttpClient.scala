@@ -186,4 +186,15 @@ class AcmeHttpClient {
     }
   }
 
+  def challengeDetails(uri: URI): Future[AcmeProtocol.ChallengeType]  = {
+    httpGET( uri ).map {
+      case Response(status, body, headers, nonce) if status < 250 =>
+        logger.info( "body= {}, nonce= {}", body, nonce )
+
+        AcmeJson.parseChallenge( body )
+      case Response(status, body, headers, nonce) =>
+        throw new IllegalStateException("Unable to get challenge status details: " + status + ": " + body)
+    }
+  }
+
 }

@@ -402,7 +402,9 @@ package object AcmeProtocol {
   final case class ChallengeHttp(`type`: String = simple_http,
                                         uri: String, token: String, tls: Option[Boolean] = Some(false),
                                         status: Option[StatusCode] = None, validated: Option[String] = None,
-                                        error: Option[AcmeErrorMessage] = None) extends ChallengeType
+                                        error: Option[AcmeErrorMessage] = None) extends ChallengeType {
+    def getUri(): URI = new URI( uri )
+  }
 
   /**
     * a dvsni challenge

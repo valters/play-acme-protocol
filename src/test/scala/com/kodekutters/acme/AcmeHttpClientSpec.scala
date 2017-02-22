@@ -132,7 +132,7 @@ class AcmeHttpClientSpec extends WordSpec with Matchers {
             val req = AcmeProtocol.AcceptChallengeHttp( keyAuthorization = AcmeJson.withThumbprint( httpChallenge.token, keypair ) )
             val jwsReq = AcmeJson.encodeRequest( req, nonce, keypair )
 
-            httpClient.challenge( new URI( httpChallenge.uri ), jwsReq.toString() )
+            httpClient.challenge( httpChallenge.getUri, jwsReq.toString() )
           } }
           futureResponse
         } }

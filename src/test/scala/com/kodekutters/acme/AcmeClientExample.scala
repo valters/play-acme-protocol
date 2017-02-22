@@ -24,6 +24,8 @@ object AcmeClientExample {
     val acmeServer = Promise[AcmeProtocol.AcmeServer]()
     val acmeRegistration = Promise[AcmeProtocol.SimpleRegistrationResponse]()
     val acmeAgreement = Promise[AcmeProtocol.RegistrationResponse]()
+    val acmeChallenge = Promise[AcmeProtocol.AuthorizationResponse]()
+    val acmeChallengeDetails = Promise[AcmeProtocol.ChallengeHttp]()
 
     // when successfully retrieved directory, notify that AcmeServer promise is now available
     HttpClient.getDirectory( LetsEncryptStaging ).onSuccess{ case d: AcmeProtocol.Directory =>
@@ -72,12 +74,49 @@ object AcmeClientExample {
 
       HttpClient.authorize( server.newAuthz, jwsReq.toString() )
     } }
+    // after authorization is done
+    futureAuth.onSuccess{ case response: AcmeProtocol.AuthorizationResponse =>
+      acmeChallenge.success( response ) }
 
-    println("+awaiting AUTH end" )
-    Await.result( futureAuth, new DurationInt(40).seconds )
+    val getChallenges = acmeChallenge.future
+    val futureChallenge: Future[AcmeProtocol.ChallengeHttp] = getChallenges.flatMap{ authz: AcmeProtocol.AuthorizationResponse => {
+
+      println("+ start accept http-01 challenge" )
+      val httpChallenge = AcmeJson.findHttpChallenge( authz.challenges ).get
+
+      val nonce = HttpClient.getNonce()
+      println("++ authz nonce: " + nonce )
+
+      val req = AcmeProtocol.AcceptChallengeHttp( keyAuthorization = AcmeJson.withThumbprint( httpChallenge.token, keypair ) )
+      val jwsReq = AcmeJson.encodeRequest( req, nonce, keypair )
+
+      val server = getServer.value.get.get
+
+      HttpClient.challenge( httpChallenge.getUri, jwsReq.toString() )
+    } }
+    // after challenge is accepted
+    futureChallenge.onSuccess{ case response: AcmeProtocol.ChallengeHttp =>
+      acmeChallengeDetails.success( response ) }
+
+
+    println("+awaiting CHAL end" )
+    Await.result( futureChallenge, new DurationInt(40).seconds )
+
+    sleep( 3000L )
+    println("+revisit details" )
+
+    val getChallengeDetails = acmeChallengeDetails.future
+    val failedChallenge: Future[AcmeProtocol.ChallengeType] = getChallengeDetails.flatMap{ challenge: AcmeProtocol.ChallengeHttp => {
+
+      HttpClient.challengeDetails( challenge.getUri() )
+    } }
+    failedChallenge.onSuccess{ case response: AcmeProtocol.ChallengeType =>
+      println( s"Details parsed: $response" ) }
+
+    Await.result( failedChallenge, new DurationInt(10).seconds )
     println("+ending" )
     HttpClient.shutdown()
-    //sleep( 4000L )
+
   }
 
   private def sleep(duration: Long) { Thread.sleep(duration) }
