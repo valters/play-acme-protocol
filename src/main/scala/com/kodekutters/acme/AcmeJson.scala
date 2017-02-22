@@ -11,6 +11,7 @@ import com.nimbusds.jose.util.Base64URL
 import play.api.libs.json.{ Format, JsError, JsPath, JsResult, JsString, JsSuccess, JsValue, Json }
 import play.api.libs.json.{ Reads, Writes }
 import play.api.libs.json.Json.JsValueWrapper
+import com.typesafe.scalalogging.Logger
 
 /**
  * Implicit JSON converters
@@ -109,12 +110,16 @@ object AcmeJsonImplicits {
 
   implicit val fmtAuthorizationResponse = Json.format[AcmeProtocol.AuthorizationResponse]
 
+  implicit val fmtAcceptHttpChallenge = Json.format[AcmeProtocol.AcceptChallengeHttp]
+
 }
 
 /**
  * Implements JSON reads and writes for AcmeProtocol.
  */
 object AcmeJson {
+  private val logger = Logger[AcmeHttpClient]
+
   import AcmeJsonImplicits._
 
   val NonceKey = "nonce"
@@ -194,6 +199,12 @@ object AcmeJson {
     toJson( sign( payload, nonce, keypair ) )
   }
 
+  def encodeRequest( req: AcmeProtocol.AcceptChallengeHttp, nonce: String, keypair: RSAKey ): JsValue = {
+    val payload = Json.toJson( req ).toString()
+    logger.debug("accepting challenge: {}", payload )
+    toJson( sign( payload, nonce, keypair ) )
+  }
+
   /** see https://tools.ietf.org/html/rfc7515#appendix-A.7 */
   case class JwsFlattenedJson( protectedHeader: Base64URL, payload: Base64URL, signature: Base64URL )
 
@@ -208,17 +219,24 @@ object AcmeJson {
   }
 
   def parseChallenge( jsonBody: String): AcmeProtocol.ChallengeType = {
-    val authz = Json.parse( jsonBody ).validate[AcmeProtocol.ChallengeType]
-    authz match {
+    val challenge = Json.parse( jsonBody ).validate[AcmeProtocol.ChallengeType]
+    challenge match {
       case s: JsSuccess[AcmeProtocol.ChallengeType] ⇒ s.get
       case e: JsError ⇒ throw new IllegalStateException( "Unable to parse json as challenge: "+JsError.toJson( e ).toString() )
     }
   }
 
+  /** dirty casting shortcut */
+  def parseHttpChallenge( jsonBody: String): AcmeProtocol.ChallengeHttp = parseChallenge( jsonBody ).asInstanceOf[AcmeProtocol.ChallengeHttp]
+
   def findHttpChallenge( challenges: List[AcmeProtocol.ChallengeType] ): Option[AcmeProtocol.ChallengeHttp] = {
       challenges.find(_.`type` == AcmeProtocol.simple_http).map { challenge =>
         challenge.asInstanceOf[AcmeProtocol.ChallengeHttp]
       }
+  }
+
+  def withThumbprint(token: String, keypair: RSAKey): String = {
+    token + "." + keypair.computeThumbprint()
   }
 
 }

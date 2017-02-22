@@ -8,6 +8,7 @@ import scala.concurrent.duration.DurationInt
 import org.scalatest.{ Matchers, WordSpec }
 
 import com.kodekutters.acme.AcmeProtocol.AcmeServer
+import java.net.URI
 
 class AcmeHttpClientSpec extends WordSpec with Matchers {
 
@@ -24,6 +25,7 @@ class AcmeHttpClientSpec extends WordSpec with Matchers {
     val acmeServer = Promise[AcmeServer]()
     val acmeRegistration = Promise[AcmeProtocol.SimpleRegistrationResponse]()
     val acmeAgreement = Promise[AcmeProtocol.RegistrationResponse]()
+    val acmeChallenge = Promise[AcmeProtocol.AuthorizationResponse]()
 
     "initialized" should {
       "request directory" in {
@@ -61,8 +63,8 @@ class AcmeHttpClientSpec extends WordSpec with Matchers {
         val getServer = acmeServer.future
         val f = getServer.flatMap{ server: AcmeServer => {
 
-          val fut = acmeRegistration.future
-          val regf: Future[AcmeProtocol.RegistrationResponse] = fut.flatMap{ reg: AcmeProtocol.SimpleRegistrationResponse => {
+          val getRegistration = acmeRegistration.future
+          val futureResponse: Future[AcmeProtocol.RegistrationResponse] = getRegistration.flatMap{ reg: AcmeProtocol.SimpleRegistrationResponse => {
 
             val req = new AcmeProtocol.RegistrationRequest( resource = AcmeProtocol.reg, contact = Some(Array( "mailto:cert-admin@example.com" )),
                 agreement = Some( reg.agreement ) )
@@ -73,7 +75,7 @@ class AcmeHttpClientSpec extends WordSpec with Matchers {
 
           } }
 
-          regf
+          futureResponse
         } }
 
         f.onSuccess{ case response: AcmeProtocol.RegistrationResponse => acmeAgreement.success( response ) }
@@ -89,8 +91,8 @@ class AcmeHttpClientSpec extends WordSpec with Matchers {
         val f = getServer.flatMap{ server: AcmeServer => {
 
           val acmeIdent = AcmeProtocol.AcmeIdentifier( value = TestDomain )
-          val fut = acmeAgreement.future
-          val f: Future[AcmeProtocol.AuthorizationResponse] = fut.flatMap{ reg: AcmeProtocol.RegistrationResponse => {
+          val getAgreement = acmeAgreement.future
+          val futureResponse: Future[AcmeProtocol.AuthorizationResponse] = getAgreement.flatMap{ reg: AcmeProtocol.RegistrationResponse => {
 
             println("+ ToS agreement received" )
             val nonce = httpClient.getNonce()
@@ -102,8 +104,10 @@ class AcmeHttpClientSpec extends WordSpec with Matchers {
             httpClient.authorize( server.newAuthz, jwsReq.toString() )
           } }
 
-          f
+          futureResponse
         } }
+
+        f.onSuccess{ case response: AcmeProtocol.AuthorizationResponse => acmeChallenge.success( response ) }
 
         println("+awaiting AUTH end" )
         Await.result( f, new DurationInt(20).seconds )
@@ -111,9 +115,39 @@ class AcmeHttpClientSpec extends WordSpec with Matchers {
         sleep( 4000L )
       }
 
-    }
-  }
+      "accept challenge" in {
+        println("+ set on challenge start" )
+        val getServer = acmeServer.future
+        val f = getServer.flatMap{ server: AcmeServer => {
 
-def sleep(duration: Long) { Thread.sleep(duration) }
+          val getChallenge = acmeChallenge.future
+          val futureResponse: Future[AcmeProtocol.ChallengeHttp] = getChallenge.flatMap{ authz: AcmeProtocol.AuthorizationResponse => {
+
+            println("+ challenges received" )
+            val httpChallenge = AcmeJson.findHttpChallenge( authz.challenges ).get
+
+            val nonce = httpClient.getNonce()
+            println("++ challenges nonce: " + nonce )
+
+            val req = AcmeProtocol.AcceptChallengeHttp( keyAuthorization = AcmeJson.withThumbprint( httpChallenge.token, keypair ) )
+            val jwsReq = AcmeJson.encodeRequest( req, nonce, keypair )
+
+            httpClient.challenge( new URI( httpChallenge.uri ), jwsReq.toString() )
+          } }
+          futureResponse
+        } }
+
+        println("+awaiting CHAL end" )
+        Await.result( f, new DurationInt(20).seconds )
+        println("+sleeping till CHAL end" )
+        sleep( 4000L )
+
+      }
+
+
+    } // initialized
+  } // "Acme Http Client"
+
+  def sleep(duration: Long) { Thread.sleep(duration) }
 
 }

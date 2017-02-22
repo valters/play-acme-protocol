@@ -26,6 +26,11 @@ class AcmeHttpClient {
     .withTcpNoDelay(true)
     .withTcpKeepAlive(false)
 
+  /** ask Netty to exit its event loops to allow VM to wrap up threads and end */
+  def shutdown() = {
+    httpClient.shutdown()
+  }
+
   private val MimeUrlencoded = "application/x-www-form-urlencoded"
 
   private val HeaderLink = "Link"
@@ -84,6 +89,7 @@ class AcmeHttpClient {
     }
   }
 
+  /** server asks us to accept ToS as response */
   def registration( uri: URI, message: String  ): Future[AcmeProtocol.SimpleRegistrationResponse] = {
     httpPOST( uri, MimeUrlencoded, message ).flatMap {
         case Response(201, body, headers, nonce) =>
@@ -120,6 +126,7 @@ class AcmeHttpClient {
     }
   }
 
+  /** server provides list of challenges as response */
   def authorize( uri: URI, message: String  ): Future[AcmeProtocol.AuthorizationResponse] = {
     httpPOST( uri, MimeUrlencoded, message ).flatMap {
         case Response(201, body, headers, nonce) =>
@@ -131,7 +138,7 @@ class AcmeHttpClient {
     }
   }
 
-  /** accept registration: pass the terms of service url in reg indicating agreement
+  /** accept ToS to complete the registration: we need to pass the detected "terms of service" doc url to indicate agreement
    *  @param uri regURL returned as Location by new-reg call, for example "https://acme-staging.api.letsencrypt.org/acme/reg/930540"
    *  @param message registration message wrapped as JWS
    */
@@ -163,9 +170,20 @@ class AcmeHttpClient {
       .flatMap(_.split(">").headOption.map(_.replaceAll("^<", "")))
   }
 
-  /** ask Netty to exit its event loops to allow VM to wrap up threads and end */
-  def shutdown() = {
-    httpClient.shutdown()
+
+  /** indicate that we would like to try the particular challenge */
+  def challenge( uri: URI, message: String ): Future[AcmeProtocol.ChallengeHttp] = {
+    logger.debug("[{}] Accepting challenge", uri )
+
+    httpPOST( uri, MimeUrlencoded, message ).flatMap {
+      case Response(status, body, headers, nonce) if status < 250 =>
+        logger.info("[{}] Successfully accepted challenge: {} {} {} {}", uri, body, headers, nonce)
+        Future.successful( AcmeJson.parseHttpChallenge( body ) )
+
+      case Response(status, body, headers, nonce) =>
+        logger.error("[{}] Unable to accept challenge: {} {} {} {}", uri, body, headers, nonce)
+        throw new IllegalStateException("Unable to accept challenge: " + status + ": " + body)
+    }
   }
 
 }

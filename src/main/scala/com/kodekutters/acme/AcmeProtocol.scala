@@ -445,6 +445,9 @@ package object AcmeProtocol {
                                               status: Option[StatusCode] = None, validated: Option[String] = None,
                                               error: Option[AcmeErrorMessage] = None) extends ChallengeType
 
+  /** Indicate to ACME server that we would like to proceed with HTTP challenge */
+  final case class AcceptChallengeHttp(`type`: String = simple_http, resource: String = "challenge", keyAuthorization: String, tls: Option[Boolean] = Some(false) )
+
   //----------------------------------------------------------------------------
   //-----------------Request Type-----------------------------------------------
   //----------------------------------------------------------------------------

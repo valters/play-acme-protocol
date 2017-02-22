@@ -6,6 +6,8 @@ import com.nimbusds.jose.util.Base64
 
 import play.api.libs.json.Json
 
+import AcmeJsonImplicits.fmtAcceptHttpChallenge
+
 /**
  * This tests only the JSON parsing part of ACME protocol support.
  */
@@ -79,6 +81,31 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
   ]
 }"""
 
+  val HttpAuthToken = "64i9fs15NaaD-y09SAdySPJkMXc7chV9w2jCOMca7Fg"
+
+  val TestHttpChallengeReq = """{"type":"http-01","resource":"challenge","keyAuthorization":"64i9fs15NaaD-y09SAdySPJkMXc7chV9w2jCOMca7Fg","tls":false}"""
+
+  val TestHttpChallengeResp = """{
+  "type": "http-01",
+  "status": "invalid",
+  "error": {
+    "type": "urn:acme:error:connection",
+    "detail": "DNS problem: NXDOMAIN looking up A for unit-test.mydomain.example.org",
+    "status": 400
+  },
+  "uri": "https://acme-staging.api.letsencrypt.org/acme/challenge/HbneD62ctzzq0-0WQ2-eTTNE2pO9TIehCy3heA_5oWg/26655337",
+  "token": "pJw_sdRD01Qd1pR1WKAGf4IksL4DtUYmfBmMOdaSYMg",
+  "keyAuthorization": "pJw_sdRD01Qd1pR1WKAGf4IksL4DtUYmfBmMOdaSYMg.Axtsf3VDiDeRH9TB7ok6taUGEvKsvdaGk-EiTDN4Ihk",
+  "validationRecord": [
+    {
+      "url": "http://unit-test.mydomain.example.org/.well-known/acme-challenge/pJw_sdRD01Qd1pR1WKAGf4IksL4DtUYmfBmMOdaSYMg",
+      "hostname": "unit-test.mydomain.example.org",
+      "port": "80",
+      "addressesResolved": [],
+      "addressUsed": ""
+    }
+  ]
+}"""
 
   "Acme Json Suite" when {
 
@@ -100,12 +127,21 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
         tls.token shouldBe "1YonOX7Hg66rwryDwYeyHQCUlnkLjZoTR4B7UXLF6Os"
       }
 
+      "parse http challenge with details" in {
+        val challenge: AcmeProtocol.ChallengeType = AcmeJson.parseChallenge( TestHttpChallengeResp )
+        challenge.`type` shouldBe "http-01"
+        val http = challenge.asInstanceOf[AcmeProtocol.ChallengeHttp]
+        http.status.get shouldBe AcmeProtocol.invalid
+        http.token shouldBe "pJw_sdRD01Qd1pR1WKAGf4IksL4DtUYmfBmMOdaSYMg"
+        http.error.get.status.get shouldBe 400
+      }
+
       "parse Authorization body" in {
         val ares: AcmeProtocol.AuthorizationResponse = AcmeJson.parseAuthorization( TestAuthorizationChallenge )
         val challenge = AcmeJson.findHttpChallenge( ares.challenges )
         challenge should not be (None)
         val http_challenge: AcmeProtocol.ChallengeHttp = challenge.get
-        http_challenge.token shouldBe "64i9fs15NaaD-y09SAdySPJkMXc7chV9w2jCOMca7Fg"
+        http_challenge.token shouldBe HttpAuthToken
         http_challenge.uri shouldBe "https://acme-staging.api.letsencrypt.org/acme/challenge/zgy5u_aCgUg6A0o6QzwVejSStjnX7qpt8L7kAmc4SpI/26567981"
       }
 
@@ -160,6 +196,13 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
         payload shouldBe TestAuthorizationRequest
 
       }
+
+      "create HttpChallenge acceptance" in {
+        val req = AcmeProtocol.AcceptChallengeHttp( keyAuthorization = HttpAuthToken )
+        val jreq = Json.toJson( req ).toString()
+        jreq shouldBe TestHttpChallengeReq
+      }
+
     }
   }
 }
