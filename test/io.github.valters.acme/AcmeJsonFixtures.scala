@@ -1,4 +1,4 @@
-package com.kodekutters.acme
+package io.github.valters.acme
 
 import org.scalatest.{ Matchers, WordSpec }
 
@@ -13,7 +13,7 @@ import AcmeJsonImplicits.fmtAcceptHttpChallenge
  */
 class AcmeJsonFixtures extends WordSpec with Matchers {
 
-  val keypair = AcmeJson.generateKeyPair()
+  val Keys = new KeyStorage(KeyStorage.Defaults)
 
   val TestContacts = Array( "mailto:cert-admin@example.com", "tel:+12025551212"  )
 
@@ -152,7 +152,7 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
         val req = new AcmeProtocol.RegistrationRequest( TestContacts )
         val jreq = AcmeJson.toJson( req ).toString()
         jreq shouldBe TestRegistrationRequest
-        val j = AcmeJson.encodeRequest(req, "<nonce>", keypair )
+        val j = AcmeJson.encodeRequest(req, "<nonce>", Keys.userKey )
         println( j )
         val payload = new Base64( (j \ "payload").as[String] ).decodeToString()
         payload shouldBe TestRegistrationRequest
@@ -178,7 +178,7 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
         val req = new AcmeProtocol.RegistrationRequest( resource = AcmeProtocol.reg, agreement = Some(TermsOfService) )
         val jreq = AcmeJson.toJson( req ).toString()
         jreq shouldBe TestRegistrationRequestWithAgreement
-        val j = AcmeJson.encodeRequest(req, "<nonce>", keypair )
+        val j = AcmeJson.encodeRequest(req, "<nonce>", Keys.userKey )
         println( j )
         val payload = new Base64( (j \ "payload").as[String] ).decodeToString()
         payload shouldBe TestRegistrationRequestWithAgreement
@@ -190,7 +190,7 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
         val jreq = Json.toJson( req ).toString()
         jreq shouldBe TestAuthorizationRequest
 
-        val j = AcmeJson.encodeRequest(req, "<nonce>", keypair )
+        val j = AcmeJson.encodeRequest(req, "<nonce>", Keys.userKey )
         println( j )
         val payload = new Base64( (j \ "payload").as[String] ).decodeToString()
         payload shouldBe TestAuthorizationRequest

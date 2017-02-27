@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-package com.kodekutters.acme
-
-
-import java.net.URI
+package io.github.valters.acme
 
 import com.nimbusds.jose.jwk.JWK
 
@@ -402,9 +399,7 @@ package object AcmeProtocol {
   final case class ChallengeHttp(`type`: String = simple_http,
                                         uri: String, token: String, tls: Option[Boolean] = Some(false),
                                         status: Option[StatusCode] = None, validated: Option[String] = None,
-                                        error: Option[AcmeErrorMessage] = None) extends ChallengeType {
-    def getUri(): URI = new URI( uri )
-  }
+                                        error: Option[AcmeErrorMessage] = None) extends ChallengeType
 
   /**
     * a dvsni challenge
@@ -726,18 +721,18 @@ package object AcmeProtocol {
     * @param certificates   A URI from which a list of certificates issued for this account can be fetched via a GET request.
     * @param error possible error
     */
-  final case class RegistrationResponse(key: JWK, contact: Option[Array[String]] = None,
+  final case class RegistrationResponse( key: Option[JWK] = None, contact: Option[Array[String]] = None,
                                         recoveryKey: Option[RecoveryKeyServer] = None,
                                         agreement: Option[String] = None,
                                         authorizations: Option[String] = None,
                                         certificates: Option[String] = None,
-                                        error: Option[AcmeErrorMessage] = None) extends ResponseType
+                                        error: Option[AcmeErrorMessage] = None ) extends ResponseType
 
   /**
    * @param regURL uri that we will visit indicating that we agree to terms
-   * @param agreement url terms-of-service that we will say we agree to
+   * @param agreement url terms-of-service that we will say we agree to. if None, then ToS already has been agreed to and we don't need to agree again
    */
-  final case class SimpleRegistrationResponse( uri: URI, agreement: String ) extends ResponseType
+  final case class SimpleRegistrationResponse( uri: String, agreement: Option[String] ) extends ResponseType
 
   /**
     * directory is a JSON dictionary whose keys are the “resource” values and
@@ -753,10 +748,14 @@ package object AcmeProtocol {
     }
   }
 
-  case class AcmeServer( newReg: URI, newAuthz: URI ) {
-    def this( directory: AcmeProtocol.Directory ) = {
-      this( new URI( directory.get( AcmeProtocol.new_reg ) ),
-          new URI( directory.get( AcmeProtocol.new_authz ) ) )
+  /**
+   * Server is cut down only to URIs that we use.
+   */
+  case class AcmeServer( dir: String, newReg: String, newAuthz: String, newCert: String ) {
+    def this( dir: String, directory: AcmeProtocol.Directory ) = {
+      this( dir, directory.get( AcmeProtocol.new_reg ),
+          directory.get( AcmeProtocol.new_authz ),
+          directory.get( AcmeProtocol.new_cert ) )
     }
   }
 
