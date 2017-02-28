@@ -98,14 +98,10 @@ public class KeyStorageUtil {
         return new RSAKey.Builder( (RSAPublicKey) kp.getPublic() ).privateKey( (RSAPrivateKey) kp.getPrivate() ).algorithm( RS256 ).build();
     }
 
-    private static RSAKey getOrGenerate( final String keyname, final int keySize, final KeyStore keystore, final String password ) {
+    private static Optional<RSAKey> getOrGenerate( final String keyname, final KeyStore keystore, final String password ) {
         try {
             final Optional<KeyPair> key = loadKeyPair( keyname, keystore, password );
-            return key.flatMap( kp -> Optional.of( asRsaKey( kp ) ) )
-                    .orElseGet( () -> {
-                        final KeyPair kp = generateKeyPair( keySize );
-                        return asRsaKey( kp );
-                    } );
+            return key.flatMap( kp -> Optional.of( asRsaKey( kp ) ) );
         }
         catch( final IOException e ) {
             throw new RuntimeException( "Failed to generate (or load) " + ALG_RSA + " key pair.", e );
@@ -119,19 +115,36 @@ public class KeyStorageUtil {
      * @param password key store password
      * @return key pair
      */
-    public static RSAKey getUserKey( final String keyname, final KeyStore keystore, final String password ) {
+    public static RSAKey getUserKey( final String keyname, final KeyStore keystore, final String keystoreFilename, final String password ) {
         try {
-            final RSAKey key = getOrGenerate( keyname, USER_KEY_SIZE, keystore, password );
-            saveKeyPair( keyname, key.toKeyPair(), keystore, password );
-            return key;
+            final Optional<RSAKey> key = getOrGenerate( keyname, keystore, password );
+            if( key.isPresent() ) {
+                return key.get();
+            }
+
+            final KeyPair kp = generateKeyPair( USER_KEY_SIZE );
+            saveKeyPair( keyname, kp, keystore, password );
+            saveKeystore( keystore, keystoreFilename, password );
+            return asRsaKey( kp );
         }
-        catch( final JOSEException e ) {
+        catch( final CertificateException | KeyStoreException | NoSuchAlgorithmException | IOException e ) {
             throw new RuntimeException( "Failed to save " + ALG_RSA + " key pair.", e );
         }
     }
 
-    public static RSAKey getDomainKey( final String keyname, final KeyStore keystore, final String password ) {
-        return getOrGenerate( keyname, CERT_KEY_SIZE, keystore, password );
+    public static RSAKey getDomainKey( final String keyname, final KeyStore keystore, final String keystoreFilename, final String password ) {
+        try {
+            final Optional<RSAKey> key = getOrGenerate( keyname, keystore, password );
+            if( key.isPresent() ) {
+                return key.get();
+            }
+
+            final KeyPair kp = generateKeyPair( CERT_KEY_SIZE );
+            return asRsaKey( kp );
+        }
+        catch( final Exception e ) {
+            throw new RuntimeException( "Failed to save " + ALG_RSA + " key pair.", e );
+        }
     }
 
     public static PKCS10CertificationRequest generateCertificateSigningRequest( final KeyPair domainKey, final String... domainNames )
@@ -377,8 +390,8 @@ public class KeyStorageUtil {
         return keystore;
     }
 
-    public static void storeCertificateKey( final KeyStore keystore, final String password, final Certificate cert, final KeyPair certKey, final String keyAlias ) throws KeyStoreException {
-        keystore.setKeyEntry( keyAlias, certKey.getPrivate(), password.toCharArray(), new java.security.cert.Certificate[] { cert } );
+    public static void storeCertificateKey( final KeyStore keystore, final String password, final KeyPair certKey, final String alias,  final Certificate... certificates ) throws KeyStoreException {
+        keystore.setKeyEntry( alias, certKey.getPrivate(), password.toCharArray(), certificates );
     }
 
 }

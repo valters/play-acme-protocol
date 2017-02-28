@@ -279,7 +279,7 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
   def finishChallenge( getChallengeDetails: Future[AcmeProtocol.ChallengeHttp], afterChallengeDetails: Promise[AcmeProtocol.ChallengeHttp], log: SourceQueueWithComplete[String] ): Unit = {
 
     log.offer( "\nawaiting challenge phase" )
-    Await.result( getChallengeDetails, new DurationInt(40).seconds )
+    Await.result( getChallengeDetails, new DurationInt(200).seconds )
 
     afterChallengeDetails.complete( finishChallenge( getChallengeDetails, log, 0 ) )
 
