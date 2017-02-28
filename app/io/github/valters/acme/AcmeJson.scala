@@ -12,6 +12,7 @@ import com.typesafe.scalalogging.Logger
 import play.api.libs.json.{ Format, JsError, JsPath, JsResult, JsString, JsSuccess, JsValue, Json }
 import play.api.libs.json.{ Reads, Writes }
 import play.api.libs.json.Json.JsValueWrapper
+import org.slf4j.LoggerFactory
 
 /**
  * Implicit JSON converters
@@ -118,7 +119,7 @@ object AcmeJsonImplicits {
  * Implements JSON reads and writes for AcmeProtocol.
  */
 object AcmeJson {
-  private val logger = Logger[AcmeHttpClient]
+  private val logger = LoggerFactory.getLogger(getClass)
 
   import AcmeJsonImplicits._
 
@@ -187,7 +188,7 @@ object AcmeJson {
 
   def encodeRequest( req: AcmeProtocol.CertificateRequest, nonce: String, keypair: RSAKey ): JsValue = {
     val payload = Json.toJson( req ).toString()
-    logger.debug("accepting challenge: {}", payload )
+    logger.debug("requesting certificate: {}", payload )
     toJson( sign( payload, nonce, keypair ) )
   }
 

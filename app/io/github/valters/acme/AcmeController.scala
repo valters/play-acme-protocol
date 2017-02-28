@@ -88,9 +88,19 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
       }
 
       Future {
-        certify( acmeDomain, accountEmail, q )
+        try {
+          certify( acmeDomain, accountEmail, q )
+        }
+        catch {
+          case e: Throwable =>
+            q.offer("\n\nException " + e )
+            logger.error("Failure on all levels: " +e, e );
+        }
       }
-      .onComplete( _ => q.complete() )
+      .onComplete{ _ =>
+        q.offer("✅") // end of transmission
+        q.complete()
+      }
     }
 
     queueSource
@@ -127,22 +137,42 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
     startChallenge( acmeChallenge.future, acmeChallengeDetails, log )
 
     finishChallenge( acmeChallengeDetails.future, afterChallengeDetails, log )
+
     afterChallengeDetails.future.onComplete {
       case Success(challengeDetails) =>
-        issueCertificate( challengeDetails, acmeDomain, log )
-        log.offer( "\nwaiting for certificate to be issued (will wait up to minute)" )
-        Await.result( certificate.future, new DurationInt(60).seconds )
-
-        val keystoreLocation = Keys.location
-        log.offer( "\n+Success! You now have certificate in "+keystoreLocation+" ." )
-        log.offer( "\n\nPlease restart app with following settings to run with HTTPS: '-Dplay.server.https.keyStore.path=conf/play-app.keystore -Dplay.server.https.keyStore.password=changeit'" )
+        issueCertificate( certificate, challengeDetails, acmeDomain, log )
 
       case Failure(e) =>
-        log.offer( "\n\n*** " + e )
-        log.offer( "\n***\nSorry, HTTPS certificate could not be produced. Please correct the issues outlined above and try again.\n***\n" )
         logger.error( "Failed challenge: " + e, e )
+        certificate.failure( e )
     }
 
+    try {
+      log.offer( "\nwaiting." )
+      Await.result( afterChallengeDetails.future, new DurationInt(120).seconds )
+      log.offer( "." )
+      Await.result( certificate.future, new DurationInt(120).seconds )
+      log.offer( "." )
+
+      certificate.future.value match {
+        case Some( Success( _ ) ) ⇒
+          val keystoreLocation = Keys.location
+          log.offer( "\n\nSuccess! We have saved the certificate to \""+keystoreLocation+"\"." )
+          log.offer( "\n\nPlease restart app with following settings to run with HTTPS: '-Dplay.server.https.keyStore.path=\""+keystoreLocation+"\" -Dplay.server.https.keyStore.password=(your password)'\n" )
+        case x ⇒
+          log.offer( "\n\n*** "+x )
+          log.offer( "\n" )
+      }
+
+    }
+    catch {
+      case e: Throwable =>
+        log.offer( "\n\n*** " + e )
+        log.offer( "\n***\nSorry, unable to produce HTTPS certificate. Please correct the issues outlined above and try again.\n***\n" )
+        logger.error("Failure while waiting: " +e, e );
+    }
+
+    log.offer("✅") // end of transmission
   }
 
   /** register (or retrieve existing) ACME server account */
@@ -293,9 +323,9 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
     }
   }
 
-  def issueCertificate( challenge: AcmeProtocol.ChallengeHttp, acmeDomain: String, log: SourceQueueWithComplete[String] ): Unit = {
+  def issueCertificate( certificate: Promise[X509Certificate], challenge: AcmeProtocol.ChallengeHttp, acmeDomain: String, log: SourceQueueWithComplete[String] ): Unit = {
 
-    log.offer( s"\n+start issuing certificate for $acmeDomain" )
+    log.offer( s"\n+ requesting certificate for $acmeDomain" )
 
     val issueCertificate: Future[X509Certificate] = {
 
@@ -311,8 +341,9 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
       HttpClient.issue( server.newCert, jwsReq.toString() )
     }
     issueCertificate.onSuccess{ case cert: X509Certificate =>
-      log.offer( "\nsaving certificate to key store" )
+      log.offer( "\n+ saving certificate to key store" )
       Keys.updateKeyStore( cert )
+      certificate.success( cert )
     }
   }
 
