@@ -17,7 +17,7 @@ class AcmeHttpClientSpec extends PlaySpec with OneAppPerSuite {
   "Acme Http Client" should {
     val logger = Logger[AcmeClientExampleSpec]
 
-      val Keys = new KeyStorage(KeyStorage.Defaults)
+    val Keys = new KeyStorage( TestEnv )
 
   /** test env URL */
   val LetsEncryptStaging = "https://acme-staging.api.letsencrypt.org"

@@ -7,8 +7,7 @@ import java.security.cert.Certificate
 
 object KeyStorage {
   /** we like to hardcode some sensible defaults - but allow you to override if wanted */
-  case class Params( DomainCertAlias: String, ChainCertAlias: String, KeystorePassword: String, UserKeystore: String, AppKeystore: String,
-      val UserKey: String, val DomainKey: String )
+  case class Params( DomainCertAlias: String, ChainCertAlias: String, KeystorePassword: String, UserKeystore: String, AppKeystore: String, val UserKey: String )
 
   val DefaultPassword: String = "changeit"
 
@@ -17,8 +16,7 @@ object KeyStorage {
       KeystorePassword = getPropertyOrDefault( "play.server.https.keyStore.password", DefaultPassword ),
       UserKeystore = getPropertyOrDefault( "play.user.keyStore.path", "conf/private.keystore" ),
       AppKeystore = getPropertyOrDefault( "play.server.https.keyStore.path", "conf/domain.keystore" ),
-      UserKey = "user.key",
-      DomainKey = "domain.key" )
+      UserKey = "user.key" )
 
     def getPropertyOrDefault( propertyName: String, defaultValue: String ) = {
       val prop = Option( System.getProperty( propertyName ) )
@@ -37,7 +35,7 @@ class KeyStorage( params: KeyStorage.Params ) {
     lazy val userKey = KeyStorageUtil.getUserKey( params.UserKey, userKeystore, params.UserKeystore, params.KeystorePassword )
 
     lazy val domainKeystore = KeyStorageUtil.loadKeystore( params.AppKeystore, params.KeystorePassword )
-    lazy val domainKey = KeyStorageUtil.getDomainKey( params.DomainKey, domainKeystore, params.AppKeystore, params.KeystorePassword )
+    lazy val domainKey = KeyStorageUtil.getDomainKey( params.DomainCertAlias, domainKeystore, params.AppKeystore, params.KeystorePassword )
 
   def generateCertificateSigningRequest( domain: String ): PKCS10CertificationRequest = {
       KeyStorageUtil.generateCertificateSigningRequest( domainKey.toKeyPair(), domain )

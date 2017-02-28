@@ -17,9 +17,9 @@ public class KeyStorageTest {
         final KeyStore keystore = KeyStorageUtil.newKeystore();
         final String password = "unit-test";
 
-        final RSAKey userKey = KeyStorageUtil.getUserKey( KeyStorage.Defaults().UserKey(), keystore, password );
-        final RSAKey domainKey = KeyStorageUtil.getDomainKey( KeyStorage.Defaults().DomainKey(), keystore, password );
+        final RSAKey userKey = KeyStorageUtil.getUserKey( KeyStorage.Defaults().UserKey(), keystore, "target/x-user.keystore", password );
+        final RSAKey domainKey = KeyStorageUtil.getDomainKey( KeyStorage.Defaults().DomainCertAlias(), keystore, "target/x-domain.keystore", password );
 
-        KeyStorageUtil.saveKeystore( keystore, "unit-test.keystore", password );
+        KeyStorageUtil.saveKeystore( keystore, "target/x-unit-test.keystore", password );
     }
 }

@@ -13,7 +13,7 @@ import AcmeJsonImplicits.fmtAcceptHttpChallenge
  */
 class AcmeJsonFixtures extends WordSpec with Matchers {
 
-  val Keys = new KeyStorage(KeyStorage.Defaults)
+  val Keys = new KeyStorage( TestEnv )
 
   val TestContacts = Array( "mailto:cert-admin@example.com", "tel:+12025551212"  )
 

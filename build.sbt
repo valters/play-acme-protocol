@@ -16,4 +16,3 @@ libraryDependencies += "com.nimbusds" % "nimbus-jose-jwt" % "4.34.1"
 
 // logging
 libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0"
-libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.22" % "test"
