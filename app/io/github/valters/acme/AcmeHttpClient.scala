@@ -93,14 +93,21 @@ class AcmeHttpClientImpl @Inject() (wsClient: WSClient) extends AcmeHttpClient {
   private def httpGET(uri: String, headers: Map[String, String] = Map.empty ): Future[Response] = {
     logger.info( "GET {}", uri )
 
-    wsClient.url( uri ).withHeaders( headers.toList : _* ).get().map { response =>
-      val statusText: String = response.statusText
-      logger.debug( "GET {} receives response {}", uri, statusText )
+    try {
+      wsClient.url( uri ).withHeaders( headers.toList : _* ).get().map { response =>
+        val statusText: String = response.statusText
+        logger.debug( "GET {} receives response {}", uri, statusText )
 
-      val r = new Response( response )
-      putNonce( r.nonce )
+        val r = new Response( response )
+        putNonce( r.nonce )
 
-      r
+        r
+      }
+    }
+    catch {
+      case e: Exception =>
+        logger.error( "Failed GET {}", uri, e );
+        Future.failed( e )
     }
   }
 

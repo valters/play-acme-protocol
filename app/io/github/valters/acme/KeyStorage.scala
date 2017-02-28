@@ -10,10 +10,12 @@ object KeyStorage {
   case class Params( DomainCertAlias: String, DomainCertFile: String, ChainCertAlias: String, KeystorePassword: String, AppKeystore: String,
       val UserKey: String, val DomainKey: String )
 
+  val DefaultPassword: String = "changeit"
+
   val Defaults = Params( DomainCertAlias = "domain",
       DomainCertFile =  "domain.crt",
       ChainCertAlias = "ca-root",
-      KeystorePassword = getPropertyOrDefault( "play.server.https.keyStore.password", "changeit" ),
+      KeystorePassword = getPropertyOrDefault( "play.server.https.keyStore.password", DefaultPassword ),
       AppKeystore = getPropertyOrDefault( "play.server.https.keyStore.path", "conf/play-app.keystore" ),
       UserKey = "user.key",
       DomainKey = "domain.key" )
@@ -31,9 +33,9 @@ object KeyStorage {
 class KeyStorage( params: KeyStorage.Params ) {
     private val logger = Logger[KeyStorage]
 
-    val keystore = KeyStorageUtil.loadKeystore( params.AppKeystore, params.KeystorePassword )
-    val userKey = KeyStorageUtil.getUserKey( params.UserKey, keystore, params.KeystorePassword )
-    val domainKey = KeyStorageUtil.getDomainKey( params.DomainKey, keystore, params.KeystorePassword )
+    lazy val keystore = KeyStorageUtil.loadKeystore( params.AppKeystore, params.KeystorePassword )
+    lazy val userKey = KeyStorageUtil.getUserKey( params.UserKey, keystore, params.KeystorePassword )
+    lazy val domainKey = KeyStorageUtil.getDomainKey( params.DomainKey, keystore, params.KeystorePassword )
 
   def generateCertificateSigningRequest( domain: String ): PKCS10CertificationRequest = {
       KeyStorageUtil.generateCertificateSigningRequest( domainKey.toKeyPair(), domain )
@@ -54,4 +56,7 @@ class KeyStorage( params: KeyStorage.Params ) {
     logger.info("wrote keystore: {}", params.AppKeystore )
   }
 
+  def location: String = params.AppKeystore
+
+  def defaultPassword: Boolean = params.KeystorePassword == KeyStorage.DefaultPassword
 }
