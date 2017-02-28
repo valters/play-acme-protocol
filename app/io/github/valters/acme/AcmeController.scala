@@ -46,21 +46,15 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
   /**
    * Validate configuration and proceed with retrieving Let's Encrypt HTTPS certificate.
    */
-  def cert = Action {
-
-    AcmeDomain match {
-      case Some(domain) => {
-
-        AcmeAccountEmail match {
-          case Some(email) =>
-            Ok.chunked( certify( domain, email ) )
-          case None =>
-            ServiceUnavailable( s"Can not proceed to retrieve HTTPS certificate: contact email address was not provided. Please set configuration value [$PropAcmeEmail] to your email address (to be used for ACME server account) in Play app configuration." )
-        }
-
-      }
-      case None =>
-        ServiceUnavailable( s"Can not proceed to retrieve HTTPS certificate: domain name was not provided. Please set configuration value [$PropAcmeDomain] to your domain name in Play app configuration." )
+  def cert = Action { request =>
+    val ip = request.remoteAddress
+    if( ip == "0:0:0:0:0:0:0:1" || ip == "127.0.0.1" ) {
+      // only allow access from localhost
+      certify()
+    }
+    else {
+      logger.info("filter ip: {}", ip )
+      Forbidden( s"ip ($ip) address not allowed" )
     }
   }
 
@@ -78,8 +72,32 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
     }
   }
 
+  /** client is now trusted */
+  private def certify(): Result = {
+      AcmeDomain match {
+        case None =>
+          ServiceUnavailable( s"Can not proceed to retrieve HTTPS certificate: domain name was not provided. Please set configuration value [$PropAcmeDomain] to your domain name in Play app configuration." )
+
+        case Some(domain) => {
+
+          AcmeAccountEmail match {
+            case None =>
+              ServiceUnavailable( s"Can not proceed to retrieve HTTPS certificate: contact email address was not provided. Please set configuration value [$PropAcmeEmail] to your email address (to be used for ACME server account) in Play app configuration." )
+
+            case Some(email) =>
+              // actually certify
+              Ok.chunked( certify( domain, email ) )
+          }
+
+        }
+      }
+  }
+
+  /** actually do some (async) work */
   private def certify( acmeDomain: String, accountEmail: String ): Source[String, SourceQueueWithComplete[String]] = {
+
     val ( queueSource, futureQueue ) = peekMatValue( Source.queue[String]( 50, OverflowStrategy.fail ) )
+
     futureQueue.map { q ⇒
       q.offer( s"Welcome to automatic HTTPS certificate provisioning.\nWill set up certificate for [$acmeDomain], setting up account for [$accountEmail]\n" )
       if( Keys.defaultPassword ) {
@@ -347,7 +365,8 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
     }
   }
 
-  /**
+  /** Technique lifted from http://loicdescotte.github.io/posts/play-akka-streams-queue/
+   *
    * @param T source type, here String
    * @param M materialization type, here a SourceQueue[String]
    */
