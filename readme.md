@@ -21,7 +21,7 @@ Clone the project, build by running `sbt clean compile publish-local`.
 
 Then, `cd samples/acme-client-sample` . Run the example app via `./run-app.sh` (important, because it asks Play to activate https and sets keypass variables.)
 
-Open [http://localhost:8080/cert](https://localhost:8080/cert) in browser. The certificate request (or renewal) progress is shown in output and also is logged (so keep an eye on the logging messages flying by). Make sure to route the 80 port and 433 port from your router to your actual IP where app is running (ports 8080 and 9443 respectively).
+Open [http://localhost:8080/cert](http://localhost:8080/cert) in browser. The certificate request (or renewal) progress is shown in output and also is logged (so keep an eye on the logging messages flying by). Make sure to route the 80 port and 433 port from your router to your actual IP where app is running (ports 8080 and 9443 respectively).
 
 Currently opening the _/cert_ page is allowed only from local host (127.0.0.1).
 
