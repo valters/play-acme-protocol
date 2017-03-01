@@ -79,15 +79,14 @@ import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.util.Base64URL;
 
 public class KeyStorageUtil {
-    private static final String CF_X509 = "X.509";
-
     private static final Logger logger = LoggerFactory.getLogger( KeyStorageUtil.class );
+
+    private static final String CF_X509 = "X.509";
 
     private static final int USER_KEY_SIZE = 4096;
 
@@ -114,13 +113,13 @@ public class KeyStorageUtil {
         return new RSAKey.Builder( (RSAPublicKey) kp.getPublic() ).privateKey( (RSAPrivateKey) kp.getPrivate() ).algorithm( RS256 ).build();
     }
 
-    private static Optional<RSAKey> getOrGenerate( final String keyname, final KeyStore keystore, final String password ) {
+    private static Optional<RSAKey> loadKey(final String keyname, final KeyStore keystore, final String password ) {
         try {
             final Optional<KeyPair> key = loadKeyPair( keyname, keystore, password );
             return key.flatMap( kp -> Optional.of( asRsaKey( kp ) ) );
         }
         catch( final IOException e ) {
-            throw new RuntimeException( "Failed to generate (or load) " + ALG_RSA + " key pair.", e );
+            throw new RuntimeException( "Failed to load " + keyname + " " + ALG_RSA + " key pair.", e );
         }
     }
 
@@ -133,7 +132,7 @@ public class KeyStorageUtil {
      */
     public static RSAKey getUserKey( final String keyname, final KeyStore keystore, final String keystoreFilename, final String password ) {
         try {
-            final Optional<RSAKey> key = getOrGenerate( keyname, keystore, password );
+            final Optional<RSAKey> key = loadKey( keyname, keystore, password );
             if( key.isPresent() ) {
                 return key.get();
             }
@@ -150,7 +149,7 @@ public class KeyStorageUtil {
 
     public static RSAKey getDomainKey( final String keyname, final KeyStore keystore, final String keystoreFilename, final String password ) {
         try {
-            final Optional<RSAKey> key = getOrGenerate( keyname, keystore, password );
+            final Optional<RSAKey> key = loadKey( keyname, keystore, password );
             if( key.isPresent() ) {
                 return key.get();
             }
@@ -317,9 +316,12 @@ public class KeyStorageUtil {
 
     private static void storeIntermediateChain( final String certUrl ) {
         try {
-            final X509Certificate caIntermediateCertificate = retrieveCertificate( certUrl ).get();
-            try( OutputStream outputStream = new FileOutputStream( "domain.chain.crt" ) ) {
-                savePem( outputStream, caIntermediateCertificate );
+            Optional<X509Certificate> cert = retrieveCertificate(certUrl);
+            if( cert.isPresent() ) {
+                final X509Certificate caIntermediateCertificate = cert.get();
+                try (OutputStream outputStream = new FileOutputStream("domain.chain.crt")) {
+                    savePem(outputStream, caIntermediateCertificate);
+                }
             }
         }
         catch( final Exception e ) {
@@ -378,7 +380,7 @@ public class KeyStorageUtil {
     }
 
     public static KeyStore loadKeystore( final String filename, final String password )
-            throws KeyStoreException, FileNotFoundException, IOException, NoSuchAlgorithmException, CertificateException {
+            throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
         final File file = new File( filename );
         if( ! file.exists() ) {
             logger.info( "[{}] key store not found; creating new", filename );
@@ -394,7 +396,7 @@ public class KeyStorageUtil {
     }
 
     public static void saveKeystore( final KeyStore keystore, final String filename, final String password )
-            throws FileNotFoundException, IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException {
+            throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException {
         try( final FileOutputStream out = new FileOutputStream( filename ) ) {
             keystore.store( out, password.toCharArray() );
         }

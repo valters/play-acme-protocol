@@ -233,7 +233,7 @@ package object AcmeProtocol {
 
     val theWrites = new Writes[ResourceType] {
       def writes(res: ResourceType) = {
-        if (res == null) JsString(reg.toString) else JsString(res.toString)
+        if (res == null) JsString(reg.toString()) else JsString(res.toString)
       }
     }
 
@@ -333,7 +333,7 @@ package object AcmeProtocol {
     * @param msg the input json message to test
     * @return true if the input json message is a AcmeErrorMessage else false
     */
-  def isAcmeErrorType(msg: JsValue) = {
+  def isAcmeErrorType(msg: JsValue): Boolean = {
     (msg \ "type").asOpt[String] match {
       case Some(t) => errorCodeMap.keySet.contains(ErrorCode.fromString(t))
       case None => false
@@ -346,7 +346,7 @@ package object AcmeProtocol {
     * @param msg the input json message to test
     * @return true if the input json message is a ChallengeResponseType else false
     */
-  def isChallengeResponseType(msg: JsValue) = {
+  def isChallengeResponseType(msg: JsValue): Boolean = {
     (msg \ "type").asOpt[String] match {
       case Some(t) => challengeTypeSet.contains(t)
       case None => false
@@ -359,7 +359,7 @@ package object AcmeProtocol {
     * @param msg the input json message to test
     * @return true if the input json message is a RequestType else false
     */
-  def isRequestType(msg: JsValue) = {
+  def isRequestType(msg: JsValue): Boolean = {
     (msg \ "resource").asOpt[String] match {
       case Some(t) => resourceSet.contains(t)
       case None => false
@@ -729,7 +729,7 @@ package object AcmeProtocol {
                                         error: Option[AcmeErrorMessage] = None ) extends ResponseType
 
   /**
-   * @param regURL uri that we will visit indicating that we agree to terms
+   * @param uri uri that we will visit indicating that we agree to terms
    * @param agreement url terms-of-service that we will say we agree to. if None, then ToS already has been agreed to and we don't need to agree again
    */
   final case class SimpleRegistrationResponse( uri: String, agreement: Option[String] ) extends ResponseType
@@ -743,9 +743,8 @@ package object AcmeProtocol {
   final case class Directory(directory: Map[ResourceType, String]) extends ResponseType {
 
     /** shortcut */
-    def get( key: ResourceType ): String = {
-      directory.get(key).get
-    }
+    def get( key: ResourceType ): String = directory(key)
+
   }
 
   /**

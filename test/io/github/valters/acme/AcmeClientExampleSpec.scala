@@ -59,7 +59,7 @@ class AcmeClientExampleSpec extends PlaySpec with OneAppPerSuite {
       val futureReg: Future[AcmeProtocol.SimpleRegistrationResponse] = HttpClient.acmeServer.future.flatMap{ server: AcmeProtocol.AcmeServer => {
         logger.info("+ server received" )
         val req = new AcmeProtocol.RegistrationRequest( Array( "mailto:cert-admin@example.com" ) )
-        val nonce = HttpClient.getNonce()
+        val nonce = HttpClient.takeNonce()
         logger.info("++ dir nonce: " + nonce )
         val jwsReq = AcmeJson.encodeRequest( req, nonce, Keys.userKey )
         HttpClient.registration( server.newReg, jwsReq.toString() )
@@ -77,8 +77,8 @@ class AcmeClientExampleSpec extends PlaySpec with OneAppPerSuite {
             case None => Future.successful( AcmeProtocol.RegistrationResponse() ) // no registration needed
             case agreement =>
                 logger.info("+ start ToS agree {}", agreement )
-                val req = new AcmeProtocol.RegistrationRequest( resource = AcmeProtocol.reg, agreement = agreement )
-                val nonce = HttpClient.getNonce()
+                val req = AcmeProtocol.RegistrationRequest( resource = AcmeProtocol.reg, agreement = agreement )
+                val nonce = HttpClient.takeNonce()
                 logger.debug("++ new-reg nonce: {}", nonce )
                 val jwsReq = AcmeJson.encodeRequest( req, nonce, Keys.userKey )
                 HttpClient.agreement( reg.uri, jwsReq.toString() )
@@ -93,7 +93,7 @@ class AcmeClientExampleSpec extends PlaySpec with OneAppPerSuite {
       val futureAuth: Future[AcmeProtocol.AuthorizationResponse] = getAgreedReg.flatMap{ reg: AcmeProtocol.RegistrationResponse => {
 
         logger.info("+ start ToS agreement" )
-        val nonce = HttpClient.getNonce()
+        val nonce = HttpClient.takeNonce()
         logger.info("++ reg-agree nonce: " + nonce )
 
         val req = new AcmeProtocol.AuthorizationRequest( identifier = TestDomainIdent )
@@ -113,7 +113,7 @@ class AcmeClientExampleSpec extends PlaySpec with OneAppPerSuite {
         logger.info("+ start accept http-01 challenge" )
         val httpChallenge = AcmeJson.findHttpChallenge( authz.challenges ).get
 
-        val nonce = HttpClient.getNonce()
+        val nonce = HttpClient.takeNonce()
         logger.info("++ authz nonce: " + nonce )
 
         val req = AcmeProtocol.AcceptChallengeHttp( keyAuthorization = AcmeJson.withThumbprint( httpChallenge.token, Keys.userKey ) )

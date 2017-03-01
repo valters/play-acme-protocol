@@ -22,9 +22,6 @@ import org.junit.Test;
 
 import com.nimbusds.jose.jwk.RSAKey;
 
-import io.github.valters.acme.KeyStorage;
-import io.github.valters.acme.KeyStorageUtil;
-
 public class KeyStorageTest {
 
     @Test

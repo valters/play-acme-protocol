@@ -16,31 +16,26 @@
 
 package io.github.valters.acme
 
-import java.util.concurrent.{ BlockingQueue, LinkedBlockingQueue }
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-
 import com.typesafe.scalalogging.Logger
-
 import play.api.libs.ws.WSClient
 import play.api.libs.ws.WSResponse
 import javax.inject.Inject
 import java.security.cert.X509Certificate
-import com.nimbusds.jose.util.Base64URL
-import org.bouncycastle.jce.provider.X509CertParser
-import java.io.InputStream
-import java.security.cert.CertificateFactory
+
 import akka.util.ByteString
-import java.io.ByteArrayInputStream
 import java.util.concurrent.TimeUnit
+
 import scala.concurrent.Promise
 import com.google.common.net.HttpHeaders
 import com.google.inject.ImplementedBy
 
 @ImplementedBy(classOf[AcmeHttpClientImpl])
 trait AcmeHttpClient {
-  def getNonce(): String
+  def takeNonce(): String
 
   def getDirectory(endpoint: String ): Future[AcmeProtocol.Directory]
 
@@ -56,18 +51,18 @@ trait AcmeHttpClient {
 
   def issue( uri: String, message: String ): Future[X509Certificate]
 
-  val acmeServer = Promise[AcmeProtocol.AcmeServer]()
+  val acmeServer: Promise[AcmeProtocol.AcmeServer] = Promise[AcmeProtocol.AcmeServer]()
 }
 
 /** extract few fields of interest from the underlying http WSResponse */
-final case class Response( val status: Int, body: String, headers: Map[String, Seq[String]], nonce: Option[String] ) {
+final case class Response( status: Int, body: String, headers: Map[String, Seq[String]], nonce: Option[String] ) {
   def this( resp: WSResponse ) {
     this( resp.status, resp.body, resp.allHeaders, resp.header( AcmeProtocol.NonceHeader ) )
   }
 }
 
 /** binary response */
-final case class BResponse( val status: Int, body: ByteString, headers: Map[String, Seq[String]], nonce: Option[String] ) {
+final case class BResponse( status: Int, body: ByteString, headers: Map[String, Seq[String]], nonce: Option[String] ) {
   def this( resp: WSResponse ) {
     this( resp.status, resp.bodyAsBytes, resp.allHeaders, resp.header( AcmeProtocol.NonceHeader ) )
   }
@@ -82,12 +77,13 @@ class AcmeHttpClientImpl @Inject() (wsClient: WSClient) extends AcmeHttpClient {
   /** request the certificate in specific format that Java likes */
   private val AcceptMimeCert = "application/pkix-cert"
 
+  /** track down the links that ACME advertises in response */
   private val HeaderLink = "Link"
 
-  private val nonceQueue:BlockingQueue[String] = new LinkedBlockingQueue[String]();
+  private val nonceQueue: BlockingQueue[String] = new LinkedBlockingQueue[String]()
 
   /** blocks until a nonce value is available */
-  def getNonce(): String = {
+  def takeNonce(): String = {
     val nonce = nonceQueue.poll( 0, TimeUnit.SECONDS )
     if( nonce != null ) {
       nonce
@@ -122,7 +118,7 @@ class AcmeHttpClientImpl @Inject() (wsClient: WSClient) extends AcmeHttpClient {
     }
     catch {
       case e: Exception =>
-        logger.error( "Failed GET {}", uri, e );
+        logger.error( "Failed GET {}", uri, e )
         Future.failed( e )
     }
   }
@@ -191,14 +187,14 @@ class AcmeHttpClientImpl @Inject() (wsClient: WSClient) extends AcmeHttpClient {
           termsOfService( headers )
 
         case Response( status, body, headers, nonce ) =>
-          logger.error("[{}] Unable to register account after error {} tried {}", uri, status.toString(), body )
+          logger.error("[{}] Unable to register account after error {} tried {}", uri, status.toString, body )
           throw new IllegalStateException("Unable to register: " + status + ": " + body)
     }
   }
 
   private def termsOfService( headers: Map[String, Seq[String]] ): Future[AcmeProtocol.SimpleRegistrationResponse] = {
-      val regUrl = headers.get(HttpHeaders.LOCATION).get.head
-      logger.info("  . folow up: {}", regUrl )
+      val regUrl = headers(HttpHeaders.LOCATION).head
+      logger.info("  . follow up: {}", regUrl )
       val termsUrl = findTerms( headers )
       logger.info("  . terms of service: {}", termsUrl )
       Future.successful( AcmeProtocol.SimpleRegistrationResponse( regUrl, termsUrl ) )
@@ -211,7 +207,7 @@ class AcmeHttpClientImpl @Inject() (wsClient: WSClient) extends AcmeHttpClient {
           logger.info("Successfully authorized account: {} {} {} {}", uri, body, headers, nonce)
           Future.successful( AcmeJson.parseAuthorization( body ) )
         case Response( status, body, headers, nonce ) =>
-          logger.error("[{}] Unable to authorized account after error {} tried {}", uri, status.toString(), body )
+          logger.error("[{}] Unable to authorized account after error {} tried {}", uri, status.toString, body )
           throw new IllegalStateException("Unable to authorize: " + status + ": " + body)
     }
   }
@@ -242,12 +238,11 @@ class AcmeHttpClientImpl @Inject() (wsClient: WSClient) extends AcmeHttpClient {
     val linksEntry = headers.get(HeaderLink)
     linksEntry match {
       case None => None
-      case Some( links ) => {
+      case Some( links ) =>
         links.foreach{ item => logger.info( "Link: {}", item ) }
 
         links.find(_.endsWith(";rel=\"terms-of-service\""))
           .flatMap(_.split(">").headOption.map(_.replaceAll("^<", "")))
-      }
     }
   }
 
@@ -270,7 +265,7 @@ class AcmeHttpClientImpl @Inject() (wsClient: WSClient) extends AcmeHttpClient {
   def challengeDetails(uri: String): Future[AcmeProtocol.ChallengeType] = {
     httpGET( uri ).map {
       case Response(status, body, headers, nonce) if status < 250 =>
-        logger.info( "status= {} body= {}, nonce= {}", status.toString(), body, nonce )
+        logger.info( "status= {} body= {}, nonce= {}", status.toString, body, nonce )
 
         AcmeJson.parseChallenge( body )
       case Response(status, body, headers, nonce) =>
@@ -284,7 +279,7 @@ class AcmeHttpClientImpl @Inject() (wsClient: WSClient) extends AcmeHttpClient {
 
     httpPOSTbin( uri, AcceptMimeCert, message ).flatMap {
       case BResponse(status, body, headers, nonce) if status < 250 =>
-        logger.info("[{}] Successfully requested certificate: {} {} {}", uri, status.toString(), headers, nonce)
+        logger.info("[{}] Successfully requested certificate: {} {} {}", uri, status.toString, headers, nonce)
         Future.successful( KeyStorageUtil.parseCertificate( body.toByteBuffer.array() ) )
 
       case BResponse(status, body, headers, nonce) =>

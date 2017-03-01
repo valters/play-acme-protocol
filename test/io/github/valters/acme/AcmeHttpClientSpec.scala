@@ -23,7 +23,6 @@ import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 
-import org.scalatest.{ Matchers, WordSpec }
 import play.api.libs.ws.WSClient
 
 import com.typesafe.scalalogging.Logger
@@ -66,7 +65,7 @@ class AcmeHttpClientSpec extends PlaySpec with OneAppPerSuite {
         val f: Future[AcmeProtocol.SimpleRegistrationResponse] = HttpClient.acmeServer.future.flatMap{ server: AcmeProtocol.AcmeServer => {
           println("+ server received" )
           val req = new AcmeProtocol.RegistrationRequest( Array( "mailto:cert-admin@example.com" ) )
-          val nonce = HttpClient.getNonce()
+          val nonce = HttpClient.takeNonce()
           println("++ dir nonce: " + nonce )
           val jwsReq = AcmeJson.encodeRequest( req, nonce, Keys.userKey )
           HttpClient.registration( server.newReg, jwsReq.toString() )
@@ -90,8 +89,8 @@ class AcmeHttpClientSpec extends PlaySpec with OneAppPerSuite {
                 case None => Future.successful( AcmeProtocol.RegistrationResponse() ) // no registration needed
                 case agreement =>
                     logger.info("+ start ToS agree {}", agreement )
-                    val req = new AcmeProtocol.RegistrationRequest( resource = AcmeProtocol.reg, agreement = agreement )
-                    val nonce = HttpClient.getNonce()
+                    val req = AcmeProtocol.RegistrationRequest( resource = AcmeProtocol.reg, agreement = agreement )
+                    val nonce = HttpClient.takeNonce()
                     logger.debug("++ new-reg nonce: {}", nonce )
                     val jwsReq = AcmeJson.encodeRequest( req, nonce, Keys.userKey )
                     HttpClient.agreement( reg.uri, jwsReq.toString() )
@@ -119,7 +118,7 @@ class AcmeHttpClientSpec extends PlaySpec with OneAppPerSuite {
           val futureResponse: Future[AcmeProtocol.AuthorizationResponse] = getAgreement.flatMap{ reg: AcmeProtocol.RegistrationResponse => {
 
             println("+ ToS agreement received" )
-            val nonce = HttpClient.getNonce()
+            val nonce = HttpClient.takeNonce()
             println("++ agreement nonce: " + nonce )
 
             val req = new AcmeProtocol.AuthorizationRequest( identifier = acmeIdent )
@@ -149,7 +148,7 @@ class AcmeHttpClientSpec extends PlaySpec with OneAppPerSuite {
             println("+ challenges received" )
             val httpChallenge = AcmeJson.findHttpChallenge( authz.challenges ).get
 
-            val nonce = HttpClient.getNonce()
+            val nonce = HttpClient.takeNonce()
             println("++ challenges nonce: " + nonce )
 
             val req = AcmeProtocol.AcceptChallengeHttp( keyAuthorization = AcmeJson.withThumbprint( httpChallenge.token, Keys.userKey ) )

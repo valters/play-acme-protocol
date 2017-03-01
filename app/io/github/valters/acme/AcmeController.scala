@@ -17,22 +17,25 @@
 package io.github.valters.acme
 
 import javax.inject._
-import play.api._
+
 import play.api.mvc._
-import play.api.libs.ws.WSClient
-import scala.concurrent.duration.`package`.DurationInt
+
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.Await
 import scala.concurrent.Promise
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.atomic.AtomicReference
 import java.security.cert.X509Certificate
+
 import com.typesafe.scalalogging.Logger
+
 import scala.util.Success
 import scala.util.Failure
 import scala.annotation.tailrec
 import scala.util.Try
 import akka.stream.scaladsl.Source
+
 import scala.concurrent.ExecutionContext
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.SourceQueueWithComplete
@@ -86,14 +89,12 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
   /** ACME: Provides proper auth response to the .well-known/acme-challenge/ HTTP request which we expect the ACME server will perform */
   def challenge( token: String ) = Action {
      Option( keyAuthHandle.get() ) match {
-       case None => {
+       case None =>
          logger.warn( "Unrecognized token {}, providing diagnostic response", token )
          NotFound( s"""{ "error": 404, "token": "$token" }""" )
-       }
-       case Some(key) => {
+       case Some(key) =>
          logger.warn( "ACME server came by, providing successful response to challenge {}", token )
          Ok( key )
-       }
     }
   }
 
@@ -103,7 +104,7 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
         case None =>
           ServiceUnavailable( s"Can not proceed to retrieve HTTPS certificate: domain name was not provided. Please set configuration value [$PropAcmeDomain] to your domain name in Play app configuration." )
 
-        case Some(domain) => {
+        case Some(domain) =>
 
           AcmeAccountEmail match {
             case None =>
@@ -114,7 +115,6 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
               Ok.chunked( certify( domain, email ) )
           }
 
-        }
       }
   }
 
@@ -171,11 +171,11 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
           log.offer( "\nFailed to contact ACME server: " + e  )
     }
 
-    getInitialAccount( acmeRegistration, accountEmail, log )
+    registerInitialAccount( acmeRegistration, accountEmail, log )
 
     agree( acmeRegistration.future, acmeAgreement, log )
 
-    getAuthorizedAccount( acmeAgreement.future, acmeChallenge, log )
+    authorizeAccount( acmeAgreement.future, acmeChallenge, log )
 
     startChallenge( acmeChallenge.future, acmeChallengeDetails, log )
 
@@ -219,12 +219,12 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
   }
 
   /** register (or retrieve existing) ACME server account */
-  private def getInitialAccount( registration: Promise[AcmeProtocol.SimpleRegistrationResponse], accountEmail: String, log: SourceQueueWithComplete[String] ): Unit = {
+  private def registerInitialAccount( registration: Promise[AcmeProtocol.SimpleRegistrationResponse], accountEmail: String, log: SourceQueueWithComplete[String] ): Unit = {
 
     val futureReg: Future[AcmeProtocol.SimpleRegistrationResponse] = HttpClient.acmeServer.future.flatMap{ server: AcmeProtocol.AcmeServer => {
       log.offer( "\n+ server directory details received" )
       val req = new AcmeProtocol.RegistrationRequest( Array( s"mailto:$accountEmail" ) )
-      val nonce = HttpClient.getNonce()
+      val nonce = HttpClient.takeNonce()
       logger.debug("++ dir nonce: {}", nonce )
       val jwsReq = AcmeJson.encodeRequest( req, nonce, Keys.userKey )
       log.offer( "\n+ requesting account..." )
@@ -245,10 +245,10 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
           case None =>
             log.offer( "\n+ registration: existing account located" )
             Future.successful( AcmeProtocol.RegistrationResponse() ) // no registration needed
-          case agreement =>
-              log.offer( "\n+ registration: indicate agreement with Terms of Service: " + agreement )
-              val req = new AcmeProtocol.RegistrationRequest( resource = AcmeProtocol.reg, agreement = agreement )
-              val nonce = HttpClient.getNonce()
+          case agreementUrl =>
+              log.offer( "\n+ registration: indicate agreement with Terms of Service: " + agreementUrl )
+              val req = AcmeProtocol.RegistrationRequest( resource = AcmeProtocol.reg, agreement = agreementUrl )
+              val nonce = HttpClient.takeNonce()
               logger.debug("++ new-reg nonce: {}", nonce )
               val jwsReq = AcmeJson.encodeRequest( req, nonce, Keys.userKey )
               HttpClient.agreement( reg.uri, jwsReq.toString() )
@@ -261,14 +261,14 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
       agreement.success( response ) }
   }
 
-  private def getAuthorizedAccount( getAgreedReg: Future[AcmeProtocol.RegistrationResponse], challenge: Promise[AcmeProtocol.AuthorizationResponse], log: SourceQueueWithComplete[String] ): Unit = {
+  private def authorizeAccount( getAgreedReg: Future[AcmeProtocol.RegistrationResponse], challenge: Promise[AcmeProtocol.AuthorizationResponse], log: SourceQueueWithComplete[String] ): Unit = {
 
     val domainIdent = AcmeProtocol.AcmeIdentifier( value = AcmeDomain.get )
 
     val futureAuth: Future[AcmeProtocol.AuthorizationResponse] = getAgreedReg.flatMap{ _ => {
 
       log.offer( "\n+ requesting to authorize the account" )
-      val nonce = HttpClient.getNonce()
+      val nonce = HttpClient.takeNonce()
       logger.debug("++ reg-agree nonce: {}", nonce )
 
       val req = new AcmeProtocol.AuthorizationRequest( identifier = domainIdent )
@@ -296,7 +296,7 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
       val httpChallenge = AcmeJson.findHttpChallenge( authz.challenges ).get
       log.offer( "\n  + with " + httpChallenge )
 
-      val nonce = HttpClient.getNonce()
+      val nonce = HttpClient.takeNonce()
       logger.debug("++ authz nonce: {}", nonce )
 
       val keyAuth = AcmeJson.withThumbprint( httpChallenge.token, Keys.userKey )
@@ -305,7 +305,7 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
       val jwsReq = AcmeJson.encodeRequest( req, nonce, Keys.userKey )
 
       HttpClient.acmeServer.future.value.map {
-        case Success(server) => HttpClient.challenge( httpChallenge.uri, jwsReq.toString() )
+        case Success(_) => HttpClient.challenge( httpChallenge.uri, jwsReq.toString() )
         case Failure(e) =>
           log.offer( "\nserver did not show up: " + e )
           logger.error( "Server did not show up: {}", e, e )
@@ -340,16 +340,16 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
 
     afterChallenge.value match {
 
-      case Some(Success(response: AcmeProtocol.ChallengeHttp)) if response.status == Some(AcmeProtocol.valid) =>
+      case Some(Success(response: AcmeProtocol.ChallengeHttp)) if response.status.contains(AcmeProtocol.valid) =>
          // ACME server agrees the challenge is fulfilled
         Success(response)
 
-      case Some(Success(response: AcmeProtocol.ChallengeHttp)) if response.status == Some(AcmeProtocol.invalid) =>
+      case Some(Success(response: AcmeProtocol.ChallengeHttp)) if response.status.contains(AcmeProtocol.invalid) =>
          // ACME server denies us
         log.offer( "\n... denied. response = " + response )
         Failure( new RuntimeException( "Server says challenge is invalid: " + response.error + ", full response: " + response ) )
 
-      case Some(Success(response: AcmeProtocol.ChallengeHttp)) if response.status == Some(AcmeProtocol.pending) =>
+      case Some(Success(response: AcmeProtocol.ChallengeHttp)) if response.status.contains(AcmeProtocol.pending) =>
           if( retry > 30 ) {
             Failure( new RuntimeException("retry count exceeded") )
           }
@@ -359,10 +359,9 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
             finishChallenge( getChallengeDetails, log, retry + 1 )
           }
 
-      case other => {
-          log.offer( "\n... error response = " + other )
-          Failure( new RuntimeException("Error, unexpected state encountered: " + other ) )
-      }
+      case other =>
+        log.offer( "\n... error response = " + other )
+        Failure( new RuntimeException("Error, unexpected state encountered: " + other ) )
     }
   }
 
@@ -374,7 +373,7 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
 
       val server = HttpClient.acmeServer.future.value.get.get
 
-      val nonce = HttpClient.getNonce()
+      val nonce = HttpClient.takeNonce()
       logger.debug("++ challenge nonce: {}", nonce )
 
       val csr = Keys.generateCertificateSigningRequest( acmeDomain )

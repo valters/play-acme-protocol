@@ -191,7 +191,7 @@ class AcmeJsonFixtures extends WordSpec with Matchers {
       }
 
       "create Registration+Agreement req with JWS" in {
-        val req = new AcmeProtocol.RegistrationRequest( resource = AcmeProtocol.reg, agreement = Some(TermsOfService) )
+        val req = AcmeProtocol.RegistrationRequest( resource = AcmeProtocol.reg, agreement = Some(TermsOfService) )
         val jreq = AcmeJson.toJson( req ).toString()
         jreq shouldBe TestRegistrationRequestWithAgreement
         val j = AcmeJson.encodeRequest(req, "<nonce>", Keys.userKey )

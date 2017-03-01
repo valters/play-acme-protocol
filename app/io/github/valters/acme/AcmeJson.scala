@@ -16,14 +16,10 @@
 
 package io.github.valters.acme
 
-import java.security.{ KeyPair, KeyPairGenerator }
-import java.security.interfaces.{ RSAPrivateKey, RSAPublicKey }
-
-import com.nimbusds.jose.{ JWSAlgorithm, JWSHeader, JWSObject, JWSSigner, Payload }
+import com.nimbusds.jose.{ JWSHeader, JWSObject, JWSSigner, Payload }
 import com.nimbusds.jose.crypto.RSASSASigner
 import com.nimbusds.jose.jwk.{ JWK, RSAKey }
 import com.nimbusds.jose.util.Base64URL
-import com.typesafe.scalalogging.Logger
 
 import play.api.libs.json.{ Format, JsError, JsPath, JsResult, JsString, JsSuccess, JsValue, Json }
 import play.api.libs.json.{ Reads, Writes }
@@ -45,8 +41,8 @@ object AcmeJsonImplicits {
   val dirReads = new Reads[AcmeProtocol.Directory] {
     def reads(json: JsValue): JsResult[AcmeProtocol.Directory] = {
       JsPath.read[Map[String, String]].reads(json).asOpt match {
-        case Some(dir) => JsSuccess(new AcmeProtocol.Directory(dir))
-        case None => JsSuccess(new AcmeProtocol.Directory(Map[AcmeProtocol.ResourceType, String]()))  // todo log an error?
+        case Some(dir) => JsSuccess(AcmeProtocol.Directory(dir))
+        case None => JsSuccess(AcmeProtocol.Directory(Map[AcmeProtocol.ResourceType, String]()))  // todo log an error?
       }
     }
   }
@@ -143,19 +139,19 @@ object AcmeJson {
 
 
   def sign( payload: String, nonce: String, keypair: RSAKey ): JWSObject = {
-    val signer: JWSSigner = new RSASSASigner( keypair );
+    val signer: JWSSigner = new RSASSASigner( keypair )
 
     // Prepare JWS object with simple string as payload
     val jwsHeader = new JWSHeader.Builder( KeyStorageUtil.RS256 )
           .customParam(NonceKey, nonce)
-          .jwk( keypair.toPublicJWK() )
-          .build();
+          .jwk( keypair.toPublicJWK )
+          .build()
 
     val jwsPayload = new Payload( payload )
-    val jwsObject: JWSObject = new JWSObject( jwsHeader, jwsPayload );
+    val jwsObject: JWSObject = new JWSObject( jwsHeader, jwsPayload )
 
     // Compute the RSA signature
-    jwsObject.sign(signer);
+    jwsObject.sign(signer)
 
     jwsObject
   }
@@ -165,7 +161,7 @@ object AcmeJson {
   }
 
   def toJson( jwsObject: JWSObject ): JsValue = {
-    val jws = JwsFlattenedJson( jwsObject.getHeader.toBase64URL(), jwsObject.getPayload.toBase64URL(), jwsObject.getSignature() )
+    val jws = JwsFlattenedJson( jwsObject.getHeader.toBase64URL, jwsObject.getPayload.toBase64URL, jwsObject.getSignature )
     Json.toJson( jws )( implicitly( JwsFlattenedJson.writesJson ) )
   }
 
