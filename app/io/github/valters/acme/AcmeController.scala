@@ -61,17 +61,26 @@ class AcmeController @Inject() ( exec: ExecutionContext, HttpClient: AcmeHttpCli
 
   /**
    * Validate configuration and proceed with retrieving Let's Encrypt HTTPS certificate.
+   * Only allows access from localhost.
    */
-  def cert = Action { request =>
+  def cert = Action { request ⇒
     val ip = request.remoteAddress
-    if( ip == "0:0:0:0:0:0:0:1" || ip == "127.0.0.1" ) {
+    if ( ip == "0:0:0:0:0:0:0:1" || ip == "127.0.0.1" ) {
       // only allow access from localhost
       certify()
     }
     else {
-      logger.info("filter ip: {}", ip )
+      logger.info( "filtered ip: {}", ip )
       Forbidden( s"ip ($ip) address not allowed" )
     }
+  }
+
+  /**
+   * Insecure: allows access from anywhere. NB! Use only for testing.
+   */
+  def certAny = Action { request ⇒
+    logger.warn( "*** certAny endpoint is for testing only! Was accessed from {}", request.remoteAddress )
+    certify()
   }
 
   /** ACME: Provides proper auth response to the .well-known/acme-challenge/ HTTP request which we expect the ACME server will perform */
