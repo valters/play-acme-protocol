@@ -1,6 +1,6 @@
 # Let's Encrypt (ACME protocol) support for Play Framework
 
-This module automates the HTTPS certificate setup and renewal for your Play app. *Let's Encrypt* HTTPS certificates must be renewed every 60 days or so. We can automate all that by including a minimal *Let's Encrypt* ACME client based on Play WS. After we set up the initial HTTPS certificate, the module also will take care of automatically renewing your certificate.
+This module automates the HTTPS certificate provisioning, setup and renewal for your Play app. In nutshell, you will be able to start serving HTTPS with minimum fuss and for free! Also *Let's Encrypt* HTTPS certificates must be renewed every 60 days or so. We can automate all that by including a minimal *Let's Encrypt* ACME client based on Play WS. After we set up the initial HTTPS certificate, the module also will take care of automatically renewing your certificate.
 
 To get started you only need to configure 2 settings in your _application.conf_:
 ```
