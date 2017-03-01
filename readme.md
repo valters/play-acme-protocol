@@ -1,15 +1,20 @@
-# Let's Encrypt (ACME protocol) support for Play Framework
+# *Let's Encrypt* free CA (ACME protocol) support for Play Framework
 
-This module automates the HTTPS certificate provisioning, setup and renewal for your Play app. In nutshell, you will be able to start serving HTTPS with minimum fuss and for free! Also *Let's Encrypt* HTTPS certificates must be renewed every 60 days or so. We can automate all that by including a minimal *Let's Encrypt* ACME client based on Play WS. After we set up the initial HTTPS certificate, the module also will take care of automatically renewing your certificate.
+This module automates the HTTPS certificate provisioning, setup and renewal for your Play app. In nutshell, you will be able to start serving HTTPS with minimum fuss and for free!
+
+Also *Let's Encrypt* HTTPS certificates must be renewed every 60 days or so. We can automate all that by including a minimal *Let's Encrypt* ACME client based on Play WS. After we set up the initial HTTPS certificate, the module also will take care of automatically renewing your certificate.
 
 To get started you only need to configure 2 settings in your _application.conf_:
 ```
 acme.for-domain = "(your domain here)"
 acme.account-email = "(your email address here)"
 ```
+
+A new *Let's Encrypt* account will be automatically created for you.
+
 (See example: acme-client-sample [conf/application.conf](https://github.com/valters/play-acme-protocol/blob/master/samples/acme-client-sample/conf/application.conf).)
 
-By default, certificate .keystore will be generated in conf/ folder. (As conf/private.keystore for the ACME account key and conf/domain.keystore which holds the HTTPS certificate.)
+By default, certificate .keystore will be generated in conf/ folder. (As conf/private.keystore for the private ACME account key and conf/domain.keystore which holds the HTTPS certificate.)
 
 Use `-Dplay.user.keyStore.path=` and `-Dplay.server.https.keyStore.path=` to change file location (you might put the outside of play folder, for example), and don't forget to set up nice and secure `-Dplay.server.https.keyStore.password=`.
 Note: _play.server.https.keyStore.path_ is the setting you use to set up HTTPS support in Play. But the _play.user.keyStore.path_ is our custom setting.
