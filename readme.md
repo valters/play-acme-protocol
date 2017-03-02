@@ -33,6 +33,10 @@ Currently opening the _/cert_ page is allowed only from local host (127.0.0.1).
 
 After initial set-up, you can set a crontab entry to poll the `http://localhost/cert` command every 60 days (or monthly). (Use _wget_ or _curl_.)
 
+### Sample screenshot
+
+![Running /cert endpoint](https://valters.github.io/play-acme-protocol/certify-progress-screenshot.png)
+
 ## What does it do on Let's Encrypt side?
 
 It's simple. We generate a private key, transparently request and authorize Let's Encrypt account, then fulfill the http-01 challenge, send CSR (Certificate Signing Request) and get a nice and shiny HTTPS certificate back!
