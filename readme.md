@@ -25,7 +25,7 @@ On the first run, the files don't exist and will be auto generated (the _domain.
 
 Clone the project, build by running `sbt clean compile publish-local`.
 
-Then, `cd samples/acme-client-sample` . Run the example app via `./run-app.sh` (important, because it asks Play to activate https and sets keypass variables.)
+Then, `cd samples/acme-client-sample` . Run the example app via `./run-app.sh` (important, because it asks Play to activate https and sets keystore variables.)
 
 Open [http://localhost:8080/cert](http://localhost:8080/cert) in browser. The certificate request (or renewal) progress is shown in output and also is logged (so keep an eye on the logging messages flying by). Make sure to route the 80 port and 433 port from your router to your actual IP where app is running (ports 8080 and 9443 respectively).
 
@@ -55,7 +55,7 @@ GET     /cert                                 io.github.valters.acme.AcmeControl
 GET     /.well-known/acme-challenge/:token    io.github.valters.acme.AcmeController.challenge( token: String )
 ```
 
-(See for example https://github.com/valters/lawlog-play )
+(See for example [https://github.com/valters/lawlog-play](https://github.com/valters/lawlog-play/blob/master/conf/routes) )
 _/cert_ will respond only to requests from localhost. (If you don't have shell access, you might use _AcmeController.certAny_ which does not restrict IP, or wrap AcmeController to restrict access as appropriate.)
 
 # Documentation
